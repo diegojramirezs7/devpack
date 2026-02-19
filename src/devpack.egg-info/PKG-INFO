@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: devpack
+Version: 0.1.0
+Summary: CLI tool that helps developers add agent skills to an existing repo based on the detected tech stack.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: typer>=0.12
+Requires-Dist: inquirerpy>=0.3
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: claude-agent-sdk>=0.1.38
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+
+## Dev Pack
+Tool that helps developers add appropriate agent skills to an existing repo based on the detected tech stack.
+
+Eventually, it will also help developers start new projects providing different tech stack options.
+It helps you integrate your personal or organizational best practices and preferred tools seamlessly.
+
+It will help developers enforce framework specific best practices.

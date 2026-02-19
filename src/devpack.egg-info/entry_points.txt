@@ -1,0 +1,2 @@
+[console_scripts]
+devpack = devpack.cli:app

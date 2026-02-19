@@ -1,0 +1,123 @@
+from pathlib import Path
+
+import pytest
+
+from devpack.matcher import load_skills, match_skills
+from devpack.models import Skill, Technology
+
+STARTERPACK = Path(__file__).parent.parent / "starterpack"
+
+
+# --- load_skills ---
+
+def test_load_skills_returns_all_skills():
+    skills = load_skills(STARTERPACK)
+    assert len(skills) > 0
+
+
+def test_load_skills_parses_name_and_description():
+    skills = load_skills(STARTERPACK)
+    for skill in skills:
+        assert skill.name, f"{skill.id} is missing a name"
+        assert skill.description, f"{skill.id} is missing a description"
+
+
+def test_load_skills_sets_correct_path():
+    skills = load_skills(STARTERPACK)
+    for skill in skills:
+        assert skill.path.is_dir()
+        assert (skill.path / "SKILL.md").exists()
+
+
+def test_load_skills_skips_dirs_without_skill_md(tmp_path: Path):
+    (tmp_path / "agent-skills" / "broken-skill").mkdir(parents=True)
+    # No SKILL.md inside — should be silently skipped.
+    skills = load_skills(tmp_path)
+    assert skills == []
+
+
+def test_load_skills_skips_malformed_frontmatter(tmp_path: Path):
+    skill_dir = tmp_path / "agent-skills" / "bad-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("no frontmatter here\n")
+    import warnings
+    with warnings.catch_warnings(record=True):
+        skills = load_skills(tmp_path)
+    assert skills == []
+
+
+# --- match_skills ---
+
+def _make_skill(id: str, description: str = "") -> Skill:
+    return Skill(id=id, name=id, description=description, path=Path("/fake"))
+
+
+def _make_tech(id: str, name: str = "", is_frontend: bool = False) -> Technology:
+    return Technology(id=id, name=name or id.title(), is_frontend=is_frontend)
+
+
+class TestMatchSkillsWithRealSkills:
+    def setup_method(self):
+        self.all_skills = load_skills(STARTERPACK)
+
+    def _ids(self, stack):
+        return {s.id for s in match_skills(self.all_skills, stack)}
+
+    def test_django_stack_includes_django_skills(self):
+        stack = [_make_tech("python"), _make_tech("django")]
+        result = self._ids(stack)
+        assert "django-best-practices" in result
+        assert "django-docs" in result
+
+    def test_django_stack_excludes_react_skills(self):
+        stack = [_make_tech("python"), _make_tech("django")]
+        result = self._ids(stack)
+        assert "react-best-practices" not in result
+        assert "react-docs" not in result
+
+    def test_feature_implementation_plan_always_included(self):
+        for stack in [
+            [],
+            [_make_tech("python"), _make_tech("django")],
+            [_make_tech("react", is_frontend=True)],
+        ]:
+            result = self._ids(stack)
+            assert "feature-implementation-plan" in result
+
+    def test_react_stack_includes_frontend_skills(self):
+        stack = [_make_tech("react", is_frontend=True), _make_tech("typescript", is_frontend=True)]
+        result = self._ids(stack)
+        assert "react-best-practices" in result
+        assert "optimize-lighthouse-metrics" in result
+        assert "accessibility-best-practices" in result
+
+    def test_pure_django_stack_excludes_lighthouse(self):
+        stack = [_make_tech("python"), _make_tech("django")]
+        result = self._ids(stack)
+        assert "optimize-lighthouse-metrics" not in result
+
+    def test_empty_stack_returns_all_skills(self):
+        result = match_skills(self.all_skills, [])
+        assert len(result) == len(self.all_skills)
+
+
+class TestMatchSkillsLogic:
+    def test_matches_by_skill_id(self):
+        skills = [_make_skill("django-best-practices", "Best practices for Django apps")]
+        stack = [_make_tech("django")]
+        assert match_skills(skills, stack) == skills
+
+    def test_matches_by_description(self):
+        skills = [_make_skill("my-skill", "React component patterns and hooks")]
+        stack = [_make_tech("react", is_frontend=True)]
+        assert match_skills(skills, stack) == skills
+
+    def test_general_skill_always_included(self):
+        skills = [_make_skill("feature-implementation-plan", "Plan features")]
+        stack = [_make_tech("rust")]
+        assert match_skills(skills, stack) == skills
+
+    def test_no_match_excluded(self):
+        skills = [_make_skill("ruby-style-guide", "Ruby conventions")]
+        stack = [_make_tech("python")]
+        assert match_skills(skills, stack) == []
