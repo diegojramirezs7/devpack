@@ -9,7 +9,8 @@
         4. presents list to user (all selected by default)
         5. user confirms which ones they want to add
         6. tool asks which IDE/agent to generate for (cursor, vscode, claude code)
-        7. Tool automatically adds all the skills in the proper format for the chosen coding tool
+        7. Tool automatically adds all the skills in the proper format for the chosen coding tool to the repo
+        8. Tool updates readme file with a section on how to use these skills
 
 
 - initialize (scaffold a new project)
