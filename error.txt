@@ -1,0 +1,29 @@
+(devpack) diegoramirez@Diegos-MacBook-Pro-3 devpack % devpack add-skills /Users/diegoramirez/Documents/thirdplaces/backend
+Analyzing your stack with Claude...
+
+Detected stack: Python, Django, PostgreSQL, Docker
+
+? Select skills to add (space to toggle, enter to confirm): 3 skill(s) selected
+? Target IDE / agent: Claude Code
+╭──────────────────────────────────────────────── Traceback (most recent call last) ─────────────────────────────────────────────────╮
+│ /Users/diegoramirez/Documents/devpack/src/devpack/cli.py:66 in add_skills                                                          │
+│                                                                                                                                    │
+│   63 │   ide = prompt_ide_selection(repo_path)                                                                                     │
+│   64 │                                                                                                                             │
+│   65 │   # 5. Write skills to repo                                                                                                 │
+│ ❱ 66 │   written = write_skills(selected, repo_path, ide)                                                                          │
+│   67 │                                                                                                                             │
+│   68 │   # 6. Update README                                                                                                        │
+│   69 │   update_readme(repo_path, selected, ide)                                                                                   │
+│                                                                                                                                    │
+│ /Users/diegoramirez/Documents/devpack/src/devpack/writer.py:13 in write_skills                                                     │
+│                                                                                                                                    │
+│   10 │   base = repo_path / ide.skill_path                                                                                         │
+│   11 │                                                                                                                             │
+│   12 │   for skill in skills:                                                                                                      │
+│ ❱ 13 │   │   dest = base / skill.id                                                                                                │
+│   14 │   │   shutil.copytree(skill.path, dest, dirs_exist_ok=True)                                                                 │
+│   15 │   │   written.append(dest)                                                                                                  │
+│   16                                                                                                                               │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+AttributeError: 'dict' object has no attribute 'id'

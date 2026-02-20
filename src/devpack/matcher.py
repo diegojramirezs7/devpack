@@ -9,7 +9,14 @@ from devpack.models import DetectedTechnology, Skill
 GENERAL_SKILL_IDS: set[str] = {"feature-implementation-plan"}
 
 # Keywords in a skill's description that make it relevant for any frontend stack.
-FRONTEND_KEYWORDS: set[str] = {"web", "performance", "accessibility", "frontend", "lighthouse", "seo"}
+FRONTEND_KEYWORDS: set[str] = {
+    "web",
+    "performance",
+    "accessibility",
+    "frontend",
+    "lighthouse",
+    "seo",
+}
 
 
 def load_skills(starterpack_path: Path) -> list[Skill]:
@@ -34,15 +41,19 @@ def load_skills(starterpack_path: Path) -> list[Skill]:
         name = frontmatter.get("name")
         description = frontmatter.get("description")
         if not name or not description:
-            warnings.warn(f"Skipping {skill_dir.name}: frontmatter missing 'name' or 'description'")
+            warnings.warn(
+                f"Skipping {skill_dir.name}: frontmatter missing 'name' or 'description'"
+            )
             continue
 
-        skills.append(Skill(
-            id=skill_dir.name,
-            name=name,
-            description=description,
-            path=skill_dir,
-        ))
+        skills.append(
+            Skill(
+                id=skill_dir.name,
+                name=name,
+                description=description,
+                path=skill_dir,
+            )
+        )
 
     return skills
 
@@ -64,6 +75,7 @@ def match_skills(skills: list[Skill], stack: list[DetectedTechnology]) -> list[S
 
 
 # --- Private helpers ---
+
 
 def _parse_frontmatter(skill_md: Path) -> dict | None:
     """Extract and parse the YAML frontmatter from a SKILL.md file."""

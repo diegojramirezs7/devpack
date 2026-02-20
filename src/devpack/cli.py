@@ -16,15 +16,18 @@ app = typer.Typer()
 def main() -> None:
     """DevPack — add agent skills to your repo."""
 
+
 # Skills live at the repo root's starterpack/ directory.
 # For an editable install (uv pip install -e .), this resolves correctly.
 # For a distributed package, skills would need to be bundled inside the package.
-_STARTERPACK_PATH = Path(__file__).parent.parent.parent.parent / "starterpack"
+_STARTERPACK_PATH = Path(__file__).parent.parent.parent / "starterpack"
 
 
 @app.command("add-skills")
 def add_skills(
-    repo_path: Annotated[Path, typer.Argument(help="Path to the target repository.")] = Path("."),
+    repo_path: Annotated[
+        Path, typer.Argument(help="Path to the target repository.")
+    ] = Path("."),
 ) -> None:
     """Detect your stack and add matching agent skills to the repo."""
     repo_path = repo_path.resolve()
