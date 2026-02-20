@@ -17,10 +17,7 @@ def main() -> None:
     """DevPack — add agent skills to your repo."""
 
 
-# Skills live at the repo root's starterpack/ directory.
-# For an editable install (uv pip install -e .), this resolves correctly.
-# For a distributed package, skills would need to be bundled inside the package.
-_STARTERPACK_PATH = Path(__file__).parent.parent.parent / "starterpack"
+_STARTERPACK_PATH = Path(__file__).parent / "starterpack"
 
 
 @app.command("add-skills")

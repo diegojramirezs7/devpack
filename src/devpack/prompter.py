@@ -50,7 +50,7 @@ def _detect_existing_ide(repo_path: Path) -> IDETarget | None:
     """Return an IDETarget if exactly one IDE config directory exists in the repo."""
     detected = [
         ide for ide in IDE_TARGETS
-        if (repo_path / ide.skill_path.split("/")[0]).is_dir()
+        if (repo_path / Path(ide.skill_path).parts[0]).is_dir()
     ]
     return detected[0] if len(detected) == 1 else None
 

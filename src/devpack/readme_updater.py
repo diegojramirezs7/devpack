@@ -7,8 +7,8 @@ _SECTION_END_MARKER = "<!-- /devpack-skills -->"
 
 _IDE_INVOKE_HINT = {
     "claude-code": "Type `/{name}` in your Claude Code session.",
-    "cursor":      "Use `@{name}` in a Cursor chat.",
-    "vscode":      "Reference `#{name}` in a VS Code Copilot chat.",
+    "cursor": "Use `@{name}` in a Cursor chat.",
+    "vscode": "Reference `#{name}` in a VS Code Copilot chat.",
 }
 
 
@@ -30,6 +30,7 @@ def update_readme(repo_path: Path, skills: list[Skill], ide: IDETarget) -> None:
 
 # --- Private helpers ---
 
+
 def _find_readme(repo_path: Path) -> Path:
     for name in ("README.md", "readme.md", "Readme.md"):
         candidate = repo_path / name
@@ -45,7 +46,7 @@ def _build_section(skills: list[Skill], ide: IDETarget) -> str:
         "",
         "## Agent Skills",
         "",
-        f"This repo includes {len(skills)} agent skill(s) added by [DevPack](https://github.com/your-org/devpack).",
+        f"This repo includes {len(skills)} agent skill(s) added by [DevPack](https://github.com/diegojramirezs7/devpack).",
         "",
         "| Skill | Description | How to use |",
         "| ----- | ----------- | ---------- |",
@@ -63,7 +64,8 @@ def _build_section(skills: list[Skill], ide: IDETarget) -> str:
 def _replace_section(content: str, new_section: str) -> str:
     start = content.find(_SECTION_MARKER)
     end = content.find(_SECTION_END_MARKER)
-    if start == -1 or end == -1:
+    if end == -1:
+        # Opening marker exists but closing marker is missing (manual edit); append instead.
         return content + "\n\n" + new_section + "\n"
     end += len(_SECTION_END_MARKER)
     return content[:start] + new_section + content[end:]

@@ -4,8 +4,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
-load_dotenv()
-
 from devpack.models import StackDetectionResult
 from devpack.registry.known_ids import KNOWN_TECHNOLOGY_IDS
 
@@ -33,26 +31,13 @@ def _build_detection_prompt() -> str:
 
 
 def _build_json_schema() -> dict:
-    schema = StackDetectionResult.model_json_schema()
-
-    def add_no_additional_properties(obj: dict) -> None:
-        if isinstance(obj, dict):
-            if obj.get("type") == "object":
-                obj["additionalProperties"] = False
-            for value in obj.values():
-                if isinstance(value, dict):
-                    add_no_additional_properties(value)
-                elif isinstance(value, list):
-                    for item in value:
-                        if isinstance(item, dict):
-                            add_no_additional_properties(item)
-
-    add_no_additional_properties(schema)
-    return schema
+    # extra="forbid" on the models ensures additionalProperties: false is emitted automatically.
+    return StackDetectionResult.model_json_schema()
 
 
 async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
     """Run a Claude agent against repo_path and return a validated StackDetectionResult."""
+    load_dotenv()
     if not os.getenv("ANTHROPIC_API_KEY"):
         raise EnvironmentError(
             "ANTHROPIC_API_KEY is not set. Add it to a .env file or export it:\n"
@@ -71,6 +56,7 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
     structured_output = None
     result_subtype = None
 
+    # We only care about the final ResultMessage; intermediate messages are streaming progress.
     async for message in query(prompt=_build_detection_prompt(), options=options):
         if isinstance(message, ResultMessage):
             structured_output = message.structured_output

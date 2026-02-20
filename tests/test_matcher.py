@@ -1,3 +1,4 @@
+import warnings
 from pathlib import Path
 
 import pytest
@@ -5,7 +6,7 @@ import pytest
 from devpack.matcher import load_skills, match_skills
 from devpack.models import DetectedTechnology, Skill
 
-STARTERPACK = Path(__file__).parent.parent / "starterpack"
+STARTERPACK = Path(__file__).parent.parent / "src" / "devpack" / "starterpack"
 
 
 # --- load_skills ---
@@ -40,7 +41,6 @@ def test_load_skills_skips_malformed_frontmatter(tmp_path: Path):
     skill_dir = tmp_path / "agent-skills" / "bad-skill"
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("no frontmatter here\n")
-    import warnings
     with warnings.catch_warnings(record=True):
         skills = load_skills(tmp_path)
     assert skills == []

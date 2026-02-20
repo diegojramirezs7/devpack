@@ -6,7 +6,7 @@ from devpack.models import CLAUDE_CODE, CURSOR, Skill
 from devpack.writer import write_skills
 from devpack.readme_updater import update_readme
 
-STARTERPACK = Path(__file__).parent.parent / "starterpack"
+STARTERPACK = Path(__file__).parent.parent / "src" / "devpack" / "starterpack"
 
 
 def _real_skill() -> Skill:

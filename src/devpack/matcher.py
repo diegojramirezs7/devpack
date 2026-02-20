@@ -100,16 +100,17 @@ def _parse_frontmatter(skill_md: Path) -> dict | None:
 
 
 def _is_relevant(skill: Skill, tech_terms: set[str], has_frontend: bool) -> bool:
+    # Tier 1: always include skills that apply to every project.
     if skill.id in GENERAL_SKILL_IDS:
         return True
 
     skill_text = f"{skill.id} {skill.description}".lower()
 
-    # Match if any detected technology name/id appears in the skill text.
+    # Tier 2: include if the skill explicitly mentions a detected technology.
     if any(term in skill_text for term in tech_terms):
         return True
 
-    # Match cross-cutting frontend skills when a frontend stack is detected.
+    # Tier 3: include cross-cutting frontend skills whenever any frontend tech is present.
     if has_frontend and any(kw in skill_text for kw in FRONTEND_KEYWORDS):
         return True
 

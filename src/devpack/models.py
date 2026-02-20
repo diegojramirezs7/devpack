@@ -1,16 +1,20 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class DetectedTechnology(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str
     is_frontend: bool = False
 
 
 class StackDetectionResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     technologies: list[DetectedTechnology]
     summary: str
 
