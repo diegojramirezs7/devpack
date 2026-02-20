@@ -1,13 +1,11 @@
+import asyncio
 from pathlib import Path
 
-from devpack.models import Technology
-from devpack.registry.technologies import TECHNOLOGIES
+from devpack.claude_agent import detect_tech_stack
+from devpack.models import DetectedTechnology
 
 
-def detect_stack(repo_path: Path) -> list[Technology]:
-    """Return all technologies detected in the given repo path."""
-    detected = []
-    for tech in TECHNOLOGIES:
-        if any(indicator(repo_path) for indicator in tech.indicators):
-            detected.append(tech)
-    return detected
+def detect_stack(repo_path: Path) -> list[DetectedTechnology]:
+    """Detect the tech stack by querying Claude against the repo."""
+    result = asyncio.run(detect_tech_stack(repo_path))
+    return result.technologies

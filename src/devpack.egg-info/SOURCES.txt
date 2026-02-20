@@ -16,7 +16,7 @@ src/devpack.egg-info/entry_points.txt
 src/devpack.egg-info/requires.txt
 src/devpack.egg-info/top_level.txt
 src/devpack/registry/__init__.py
-src/devpack/registry/technologies.py
+src/devpack/registry/known_ids.py
 tests/test_detector.py
 tests/test_matcher.py
 tests/test_writer.py

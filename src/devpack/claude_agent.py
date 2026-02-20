@@ -1,240 +1,91 @@
-import json
-import logging
-from datetime import datetime
+import os
 from pathlib import Path
-from typing import Type
 
-from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock, ResultMessage
-from pydantic import BaseModel
+from dotenv import load_dotenv
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
-# Set up logging
-logger = logging.getLogger(__name__)
+load_dotenv()
 
-# Create logs directory for audit trails
-LOGS_DIR = Path("logs/agent_responses")
-LOGS_DIR.mkdir(parents=True, exist_ok=True)
+from devpack.models import StackDetectionResult
+from devpack.registry.known_ids import KNOWN_TECHNOLOGY_IDS
 
 
-async def query_codebase(user_query: str, repo_path: str) -> str:
+def _build_detection_prompt() -> str:
+    known_ids_formatted = ", ".join(KNOWN_TECHNOLOGY_IDS)
+    return f"""
+    Analyze the repository and identify the technologies, frameworks, and tools used.
+
+    Use the Read, Glob, and Grep tools to inspect:
+    - Package manifests: package.json, requirements.txt, pyproject.toml, Gemfile, go.mod, Cargo.toml, composer.json
+    - Config files: tsconfig.json, docker-compose.yml, .env*, *.config.js
+    - Key source files to confirm actual usage, not just listed dependencies
+
+    Only report technologies clearly present in the project.
+
+    You MUST use ONLY the following technology IDs — do not invent new ones:
+    {known_ids_formatted}
+
+    For is_frontend, set true for: javascript, typescript, react, vue, nextjs, vite, angular.
+
+    In the summary field, write 1-2 sentences describing the project's stack \
+    (e.g. "A Django REST API backed by PostgreSQL, containerized with Docker.").
     """
-    Query a codebase using Claude Agent SDK.
-
-    Args:
-        user_query: The user's question about the code
-        repo_path: Absolute path to the repository
-
-    Returns:
-        Claude's text response
-    """
-    options = ClaudeAgentOptions(
-        allowed_tools=["Read", "Glob", "Grep"],
-        cwd=repo_path,
-    )
-
-    last_text = ""
-    async for message in query(prompt=user_query, options=options):
-        if isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, TextBlock):
-                    last_text = block.text
-
-    return last_text
 
 
-async def query_codebase_markdown(
-    user_query: str,
-    repo_path: str,
-    system_prompt: str | None = None,
-) -> str:
-    """
-    Query a codebase and return plain markdown documentation.
+def _build_json_schema() -> dict:
+    schema = StackDetectionResult.model_json_schema()
 
-    This function is optimized for generating markdown documentation
-    without structured output constraints. The response is pure markdown text
-    ready for storage and rendering.
-
-    Args:
-        user_query: The documentation prompt/question
-        repo_path: Absolute path to the repository
-        system_prompt: Optional system prompt (defaults to markdown-focused prompt)
-
-    Returns:
-        Plain markdown text
-
-    Raises:
-        ValueError: If no text response is received
-    """
-    if system_prompt is None:
-        system_prompt = (
-            "You are a technical documentation expert analyzing codebases. "
-            "Generate clear, well-structured markdown documentation. "
-            "Return ONLY markdown - do not wrap in JSON or any other format. "
-            "Use proper markdown syntax and avoid characters that cause parsing issues."
-        )
-
-    options = ClaudeAgentOptions(
-        allowed_tools=["Read", "Glob", "Grep"],
-        cwd=repo_path,
-        system_prompt=system_prompt,
-    )
-
-    logger.info(f"Starting markdown documentation generation for {repo_path}")
-
-    last_text = ""
-    async for message in query(prompt=user_query, options=options):
-        if isinstance(message, AssistantMessage):
-            for block in message.content:
-                if isinstance(block, TextBlock):
-                    last_text = block.text
-
-    if not last_text:
-        raise ValueError("No markdown content received from agent")
-
-    logger.info(f"Successfully generated markdown documentation ({len(last_text)} chars)")
-    return last_text
-
-
-async def query_codebase_json(
-    user_query: str,
-    repo_path: str,
-    response_model: Type[BaseModel],
-    system_prompt: str | None = None,
-) -> BaseModel:
-    """
-    Query a codebase and enforce a specific Pydantic schema using structured outputs.
-
-    This uses Claude's output_format parameter for constrained decoding,
-    which guarantees the response will match your schema.
-
-    All responses (successful and failed) are logged to logs/agent_responses/
-    for auditing and debugging.
-
-    Args:
-        user_query: The user's question about the code
-        repo_path: Absolute path to the repository
-        response_model: Pydantic model to enforce
-        system_prompt: Optional system prompt (defaults to a JSON-focused prompt)
-
-    Returns:
-        Validated Pydantic model instance
-
-    Raises:
-        ValueError: If response isn't valid JSON with details and log path
-        ValidationError: If JSON doesn't match Pydantic schema with details
-    """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    log_file = LOGS_DIR / f"response_{timestamp}.json"
-
-    if system_prompt is None:
-        system_prompt = (
-            "You are a technical architect analyzing codebases. "
-            "Respond with valid JSON matching the requested schema."
-        )
-
-    # Convert Pydantic model to JSON schema
-    json_schema = response_model.model_json_schema()
-
-    # Ensure additionalProperties is false for all objects (required by Claude)
-    def add_additional_properties_false(schema):
-        if isinstance(schema, dict):
-            if schema.get("type") == "object":
-                schema["additionalProperties"] = False
-            for value in schema.values():
+    def add_no_additional_properties(obj: dict) -> None:
+        if isinstance(obj, dict):
+            if obj.get("type") == "object":
+                obj["additionalProperties"] = False
+            for value in obj.values():
                 if isinstance(value, dict):
-                    add_additional_properties_false(value)
+                    add_no_additional_properties(value)
                 elif isinstance(value, list):
                     for item in value:
                         if isinstance(item, dict):
-                            add_additional_properties_false(item)
+                            add_no_additional_properties(item)
 
-    add_additional_properties_false(json_schema)
+    add_no_additional_properties(schema)
+    return schema
 
-    logger.info(f"Starting codebase query for {repo_path}")
-    logger.info(f"Schema: {response_model.__name__}")
 
-    # Configure Claude with structured outputs
+async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
+    """Run a Claude agent against repo_path and return a validated StackDetectionResult."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        raise EnvironmentError(
+            "ANTHROPIC_API_KEY is not set. Add it to a .env file or export it:\n"
+            "  export ANTHROPIC_API_KEY=sk-ant-..."
+        )
+
     options = ClaudeAgentOptions(
         allowed_tools=["Read", "Glob", "Grep"],
-        cwd=repo_path,
-        system_prompt=system_prompt,
+        cwd=str(repo_path),
         output_format={
             "type": "json_schema",
-            "schema": json_schema,
+            "schema": _build_json_schema(),
         },
     )
 
-    last_text = ""
-    stop_reason = None
     structured_output = None
     result_subtype = None
 
-    try:
-        async for message in query(prompt=user_query, options=options):
-            # Capture structured output from ResultMessage
-            if isinstance(message, ResultMessage):
-                structured_output = message.structured_output
-                result_subtype = message.subtype
-                if hasattr(message, "stop_reason"):
-                    stop_reason = message.stop_reason
+    async for message in query(prompt=_build_detection_prompt(), options=options):
+        if isinstance(message, ResultMessage):
+            structured_output = message.structured_output
+            result_subtype = message.subtype
 
-            # Also capture text for debugging/logging
-            if isinstance(message, AssistantMessage):
-                if hasattr(message, "stop_reason"):
-                    stop_reason = message.stop_reason
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        last_text = block.text
+    if result_subtype == "error_max_structured_output_retries":
+        raise ValueError(
+            "Claude could not produce a valid stack detection response after multiple attempts. "
+            "Check that the repository is accessible and try again."
+        )
 
-        # Log the complete response
-        log_data = {
-            "timestamp": timestamp,
-            "repo_path": repo_path,
-            "schema": response_model.__name__,
-            "query_length": len(user_query),
-            "response_length": len(last_text) if last_text else (len(json.dumps(structured_output)) if structured_output else 0),
-            "stop_reason": stop_reason,
-            "result_subtype": result_subtype,
-            "raw_response": last_text if last_text else (json.dumps(structured_output) if structured_output else ""),
-            "has_structured_output": structured_output is not None,
-            "success": False,  # Will update if successful
-        }
+    if structured_output is None:
+        raise ValueError(
+            f"Claude did not return structured output (subtype: {result_subtype}). "
+            "Ensure the repository path is correct and the API key is valid."
+        )
 
-        # Check for structured output errors
-        if result_subtype == "error_max_structured_output_retries":
-            log_data["error"] = "Agent hit max retries trying to produce valid output"
-            log_file.write_text(json.dumps(log_data, indent=2))
-            raise ValueError(
-                f"Agent could not produce valid output after multiple attempts. "
-                f"This usually means: (1) schema too complex, (2) task is ambiguous, "
-                f"or (3) required fields cannot be determined. Check log: {log_file}"
-            )
-
-        # Check if we got structured output
-        if structured_output is None:
-            log_data["error"] = "No structured output received from agent"
-            log_file.write_text(json.dumps(log_data, indent=2))
-            raise ValueError(
-                f"Agent did not return structured output. "
-                f"Result subtype: {result_subtype}. "
-                f"Check log: {log_file}"
-            )
-
-        # Validate with Pydantic (structured_output is already validated by SDK, but we double-check)
-        validated = response_model.model_validate(structured_output)
-
-        # Mark as successful
-        log_data["success"] = True
-        log_file.write_text(json.dumps(log_data, indent=2))
-
-        logger.info(f"Successfully received structured output. Log: {log_file}")
-        return validated
-
-    except Exception as e:
-        # Only log if we haven't already
-        if "error" not in log_data:
-            log_data["error"] = str(e)
-            log_data["error_type"] = type(e).__name__
-        log_file.write_text(json.dumps(log_data, indent=2))
-
-        logger.error(f"Error processing response: {e}. Log: {log_file}")
-        raise
+    return StackDetectionResult.model_validate(structured_output)

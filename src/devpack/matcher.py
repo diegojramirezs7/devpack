@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from devpack.models import Skill, Technology
+from devpack.models import DetectedTechnology, Skill
 
 # Skills always offered regardless of detected stack.
 GENERAL_SKILL_IDS: set[str] = {"feature-implementation-plan"}
@@ -47,7 +47,7 @@ def load_skills(starterpack_path: Path) -> list[Skill]:
     return skills
 
 
-def match_skills(skills: list[Skill], stack: list[Technology]) -> list[Skill]:
+def match_skills(skills: list[Skill], stack: list[DetectedTechnology]) -> list[Skill]:
     """Return skills relevant to the detected stack."""
     if not stack:
         return skills

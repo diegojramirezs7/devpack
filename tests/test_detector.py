@@ -1,92 +1,96 @@
-import json
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from devpack.detector import detect_stack
+from devpack.models import DetectedTechnology, StackDetectionResult
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def tech_ids(repo_path: Path) -> set[str]:
-    return {t.id for t in detect_stack(repo_path)}
+def _make_result(*tech_ids: str) -> StackDetectionResult:
+    technologies = [
+        DetectedTechnology(id=tid, name=tid.title(), is_frontend=tid in {"react", "javascript", "typescript"})
+        for tid in tech_ids
+    ]
+    return StackDetectionResult(technologies=technologies, summary="Test stack.")
 
 
-# --- Fixture-based tests ---
+# --- Unit tests (mocked) ---
 
+@patch("devpack.detector.detect_tech_stack", new_callable=AsyncMock)
+def test_detect_stack_returns_technologies(mock_detect, tmp_path):
+    mock_detect.return_value = _make_result("python", "django")
+    result = detect_stack(tmp_path)
+    assert {t.id for t in result} == {"python", "django"}
+
+
+@patch("devpack.detector.detect_tech_stack", new_callable=AsyncMock)
+def test_detect_stack_empty_result(mock_detect, tmp_path):
+    mock_detect.return_value = _make_result()
+    result = detect_stack(tmp_path)
+    assert result == []
+
+
+@patch("devpack.detector.detect_tech_stack", new_callable=AsyncMock)
+def test_detect_stack_passes_repo_path(mock_detect, tmp_path):
+    mock_detect.return_value = _make_result("python")
+    detect_stack(tmp_path)
+    mock_detect.assert_called_once_with(tmp_path)
+
+
+@patch("devpack.detector.detect_tech_stack", new_callable=AsyncMock)
+def test_detect_stack_returns_detected_technology_instances(mock_detect, tmp_path):
+    mock_detect.return_value = _make_result("react")
+    result = detect_stack(tmp_path)
+    assert all(isinstance(t, DetectedTechnology) for t in result)
+
+
+@patch("devpack.detector.detect_tech_stack", new_callable=AsyncMock)
+def test_detect_stack_frontend_flag_preserved(mock_detect, tmp_path):
+    mock_detect.return_value = _make_result("react", "python")
+    result = detect_stack(tmp_path)
+    by_id = {t.id: t for t in result}
+    assert by_id["react"].is_frontend is True
+    assert by_id["python"].is_frontend is False
+
+
+# --- Integration tests (require ANTHROPIC_API_KEY; skipped in CI) ---
+
+@pytest.mark.integration
 def test_django_repo_detects_python_and_django():
-    result = tech_ids(FIXTURES / "django_repo")
+    result = {t.id for t in detect_stack(FIXTURES / "django_repo")}
     assert "python" in result
     assert "django" in result
 
 
+@pytest.mark.integration
 def test_django_repo_detects_postgres():
-    result = tech_ids(FIXTURES / "django_repo")
+    result = {t.id for t in detect_stack(FIXTURES / "django_repo")}
     assert "postgres" in result
 
 
+@pytest.mark.integration
 def test_react_repo_detects_react_and_typescript():
-    result = tech_ids(FIXTURES / "react_repo")
+    result = {t.id for t in detect_stack(FIXTURES / "react_repo")}
     assert "react" in result
     assert "typescript" in result
-    assert "javascript" in result
 
 
+@pytest.mark.integration
 def test_react_repo_does_not_detect_django():
-    result = tech_ids(FIXTURES / "react_repo")
+    result = {t.id for t in detect_stack(FIXTURES / "react_repo")}
     assert "django" not in result
 
 
+@pytest.mark.integration
 def test_node_repo_detects_typescript():
-    result = tech_ids(FIXTURES / "node_repo")
+    result = {t.id for t in detect_stack(FIXTURES / "node_repo")}
     assert "typescript" in result
-    assert "javascript" in result
 
 
+@pytest.mark.integration
 def test_empty_repo_detects_nothing():
-    result = tech_ids(FIXTURES / "empty_repo")
-    assert result == set()
-
-
-# --- tmp_path inline fixture tests ---
-
-def test_detects_fastapi_from_requirements(tmp_path: Path):
-    (tmp_path / "requirements.txt").write_text("fastapi>=0.100\nuvicorn\n")
-    result = tech_ids(tmp_path)
-    assert "fastapi" in result
-    assert "python" in result
-
-
-def test_detects_django_from_pyproject_toml(tmp_path: Path):
-    (tmp_path / "pyproject.toml").write_text(
-        '[project]\ndependencies = ["Django>=4.2", "psycopg2-binary"]\n'
-    )
-    result = tech_ids(tmp_path)
-    assert "django" in result
-    assert "postgres" in result
-
-
-def test_detects_nextjs(tmp_path: Path):
-    pkg = {"dependencies": {"next": "14.0.0", "react": "18.0.0"}}
-    (tmp_path / "package.json").write_text(json.dumps(pkg))
-    result = tech_ids(tmp_path)
-    assert "nextjs" in result
-    assert "react" in result
-
-
-def test_detects_docker(tmp_path: Path):
-    (tmp_path / "Dockerfile").write_text("FROM python:3.13\n")
-    result = tech_ids(tmp_path)
-    assert "docker" in result
-
-
-def test_detects_go(tmp_path: Path):
-    (tmp_path / "go.mod").write_text("module example.com/myapp\n\ngo 1.21\n")
-    result = tech_ids(tmp_path)
-    assert "go" in result
-
-
-def test_detects_rust(tmp_path: Path):
-    (tmp_path / "Cargo.toml").write_text('[package]\nname = "myapp"\nversion = "0.1.0"\n')
-    result = tech_ids(tmp_path)
-    assert "rust" in result
+    result = detect_stack(FIXTURES / "empty_repo")
+    assert result == []

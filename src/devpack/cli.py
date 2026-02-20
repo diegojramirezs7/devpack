@@ -33,6 +33,7 @@ def add_skills(
         raise typer.BadParameter(f"{repo_path} is not a directory.")
 
     # 1. Detect stack
+    typer.echo("Analyzing your stack with Claude...")
     stack = detect_stack(repo_path)
     if stack:
         tech_names = ", ".join(t.name for t in stack)

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from devpack.matcher import load_skills, match_skills
-from devpack.models import Skill, Technology
+from devpack.models import DetectedTechnology, Skill
 
 STARTERPACK = Path(__file__).parent.parent / "starterpack"
 
@@ -52,8 +52,8 @@ def _make_skill(id: str, description: str = "") -> Skill:
     return Skill(id=id, name=id, description=description, path=Path("/fake"))
 
 
-def _make_tech(id: str, name: str = "", is_frontend: bool = False) -> Technology:
-    return Technology(id=id, name=name or id.title(), is_frontend=is_frontend)
+def _make_tech(id: str, name: str = "", is_frontend: bool = False) -> DetectedTechnology:
+    return DetectedTechnology(id=id, name=name or id.title(), is_frontend=is_frontend)
 
 
 class TestMatchSkillsWithRealSkills:

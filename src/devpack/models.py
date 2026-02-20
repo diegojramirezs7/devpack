@@ -1,15 +1,18 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+
+from pydantic import BaseModel
 
 
-@dataclass
-class Technology:
+class DetectedTechnology(BaseModel):
     id: str
     name: str
-    # Each indicator receives the repo path and returns True if the technology is present.
-    indicators: list[Callable[[Path], bool]] = field(default_factory=list, repr=False)
     is_frontend: bool = False
+
+
+class StackDetectionResult(BaseModel):
+    technologies: list[DetectedTechnology]
+    summary: str
 
 
 @dataclass
