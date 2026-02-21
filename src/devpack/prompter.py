@@ -10,7 +10,11 @@ def prompt_skill_selection(skills: list[Skill]) -> list[Skill]:
     """Present a checkbox list of skills, all pre-selected. Returns the confirmed subset."""
     skills_by_id = {skill.id: skill for skill in skills}
     choices = [
-        Choice(value=skill.id, name=f"{skill.name} — {_truncate(skill.description, 80)}", enabled=True)
+        Choice(
+            value=skill.id,
+            name=f"{skill.name} — {_truncate(skill.description, 80)}",
+            enabled=True,
+        )
         for skill in skills
     ]
 
@@ -29,10 +33,7 @@ def prompt_ide_selection(repo_path: Path) -> IDETarget:
     detected = _detect_existing_ide(repo_path)
     default = detected or IDE_TARGETS[0]
 
-    choices = [
-        Choice(value=ide.id, name=ide.name)
-        for ide in IDE_TARGETS
-    ]
+    choices = [Choice(value=ide.id, name=ide.name) for ide in IDE_TARGETS]
 
     selected_id: str = inquirer.select(
         message="Target IDE / agent:",
@@ -46,14 +47,16 @@ def prompt_ide_selection(repo_path: Path) -> IDETarget:
 
 # --- Private helpers ---
 
+
 def _detect_existing_ide(repo_path: Path) -> IDETarget | None:
     """Return an IDETarget if exactly one IDE config directory exists in the repo."""
     detected = [
-        ide for ide in IDE_TARGETS
+        ide
+        for ide in IDE_TARGETS
         if (repo_path / Path(ide.skill_path).parts[0]).is_dir()
     ]
     return detected[0] if len(detected) == 1 else None
 
 
 def _truncate(text: str, max_len: int) -> str:
-    return text[:max_len - 1] + "…" if len(text) > max_len else text
+    return text[: max_len - 1] + "…" if len(text) > max_len else text
