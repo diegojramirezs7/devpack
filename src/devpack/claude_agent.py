@@ -1,9 +1,8 @@
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+from devpack.config import load_api_key
 from devpack.models import StackDetectionResult
 from devpack.registry.known_ids import KNOWN_TECHNOLOGY_IDS
 
@@ -37,10 +36,10 @@ def _build_json_schema() -> dict:
 
 async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
     """Run a Claude agent against repo_path and return a validated StackDetectionResult."""
-    load_dotenv()
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if not load_api_key():
         raise EnvironmentError(
-            "ANTHROPIC_API_KEY is not set. Add it to a .env file or export it:\n"
+            "ANTHROPIC_API_KEY is not set.\n\n"
+            "Run `devpack configure` to set it up, or export it manually:\n"
             "  export ANTHROPIC_API_KEY=sk-ant-..."
         )
 

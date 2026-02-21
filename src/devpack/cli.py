@@ -4,7 +4,10 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
+from InquirerPy import inquirer
+from InquirerPy.base.control import Choice
 
+from devpack.config import append_to_shell_rc, load_api_key, save_to_config_file
 from devpack.detector import detect_stack
 from devpack.matcher import load_skills, match_skills
 from devpack.prompter import prompt_ide_selection, prompt_skill_selection
@@ -38,6 +41,67 @@ def main(
 _STARTERPACK_PATH = importlib.resources.files("devpack") / "starterpack"
 
 
+@app.command("configure")
+def configure() -> None:
+    """Set up your Anthropic API key."""
+    typer.echo("DevPack Configuration\n")
+
+    existing = load_api_key()
+    if existing:
+        masked = existing[:12] + "..." + existing[-4:]
+        typer.echo(f"An API key is already configured ({masked}).")
+        if not typer.confirm("Replace it?", default=False):
+            raise typer.Exit()
+        typer.echo()
+
+    key = typer.prompt(
+        "Anthropic API key (get one at console.anthropic.com/settings/api-keys) or from your administrator",
+        hide_input=True,
+    )
+
+    if not key.startswith("sk-ant-"):
+        typer.echo(
+            "Error: that doesn't look like a valid Anthropic API key (expected prefix: sk-ant-).",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    location: str = inquirer.select(
+        message="Where should devpack store it?",
+        choices=[
+            Choice(
+                value="config",
+                name="~/.config/devpack/.env  (recommended — never committed to a repo)",
+            ),
+            Choice(value="zshrc", name="~/.zshrc"),
+            Choice(value="zprofile", name="~/.zprofile"),
+            Choice(value="manual", name="I'll set it myself — just show me what to do"),
+        ],
+    ).execute()
+
+    typer.echo()
+
+    if location == "config":
+        path = save_to_config_file(key)
+        typer.echo(f"API key saved to {path}")
+    elif location == "zshrc":
+        rc = Path.home() / ".zshrc"
+        append_to_shell_rc(key, rc)
+        typer.echo(f"Added to {rc}  —  run: source ~/.zshrc")
+    elif location == "zprofile":
+        rc = Path.home() / ".zprofile"
+        append_to_shell_rc(key, rc)
+        typer.echo(f"Added to {rc}  —  run: source ~/.zprofile")
+    elif location == "manual":
+        typer.echo(
+            "Add this line to your shell config (e.g. ~/.zshrc or ~/.zprofile):\n"
+        )
+        typer.echo(f'  export ANTHROPIC_API_KEY="{key}"\n')
+        typer.echo("Then reload your shell or run: source ~/.zshrc")
+
+    typer.echo("\nAll set. Run `devpack add-skills` to get started.")
+
+
 @app.command("add-skills")
 def add_skills(
     repo_path: Annotated[
@@ -52,7 +116,11 @@ def add_skills(
 
     # 1. Detect stack
     typer.echo("Analyzing your stack with Claude...")
-    stack = detect_stack(repo_path)
+    try:
+        stack = detect_stack(repo_path)
+    except EnvironmentError as e:
+        typer.echo(f"\nError: {e}", err=True)
+        raise typer.Exit(1)
     if stack:
         tech_names = ", ".join(t.name for t in stack)
         typer.echo(f"\nDetected stack: {tech_names}\n")
