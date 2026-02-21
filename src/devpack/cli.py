@@ -1,5 +1,7 @@
+import importlib.metadata
+import importlib.resources
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
@@ -12,12 +14,28 @@ from devpack.writer import write_skills
 app = typer.Typer()
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        v = importlib.metadata.version("devpack")
+        typer.echo(f"devpack {v}")
+        raise typer.Exit()
+
+
 @app.callback()
-def main() -> None:
+def main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit.",
+    ),
+) -> None:
     """DevPack — add agent skills to your repo."""
 
 
-_STARTERPACK_PATH = Path(__file__).parent / "starterpack"
+_STARTERPACK_PATH = importlib.resources.files("devpack") / "starterpack"
 
 
 @app.command("add-skills")
