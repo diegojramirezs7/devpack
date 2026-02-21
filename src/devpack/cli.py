@@ -1,5 +1,6 @@
 import importlib.metadata
 import importlib.resources
+import os
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -107,52 +108,87 @@ def add_skills(
     repo_path: Annotated[
         Path, typer.Argument(help="Path to the target repository.")
     ] = Path("."),
+    debug: bool = typer.Option(False, "--debug", help="Show full tracebacks and verbose API logging."),
 ) -> None:
     """Detect your stack and add matching agent skills to the repo."""
+    if debug:
+        os.environ["ANTHROPIC_LOG"] = "debug"
+
     repo_path = repo_path.resolve()
 
+    # Early validation
     if not repo_path.is_dir():
         raise typer.BadParameter(f"{repo_path} is not a directory.")
 
-    # 1. Detect stack
-    typer.echo("Analyzing your stack with Claude...")
+    if not os.access(repo_path, os.W_OK):
+        typer.echo(f"Error: no write permission for {repo_path}.", err=True)
+        raise typer.Exit(1)
+
+    if not any(repo_path.iterdir()):
+        typer.echo("Warning: the target directory appears to be empty.\n")
+
     try:
+        # 1. Detect stack
+        typer.echo("Analyzing your stack with Claude...")
         stack = detect_stack(repo_path)
+        if stack:
+            tech_names = ", ".join(t.name for t in stack)
+            typer.echo(f"\nDetected stack: {tech_names}\n")
+        else:
+            typer.echo("\nNo stack detected — showing all available skills.\n")
+
+        # 2. Load and match skills
+        skills = load_skills(_STARTERPACK_PATH)
+        matched = match_skills(skills, stack)
+
+        if not matched:
+            typer.echo("No applicable skills found for this stack.")
+            raise typer.Exit()
+
+        # 3. User selects skills
+        selected = prompt_skill_selection(matched)
+
+        if not selected:
+            typer.echo("No skills selected. Nothing to do.")
+            raise typer.Exit()
+
+        # 4. User selects IDE
+        ide = prompt_ide_selection(repo_path)
+
+        # 5. Write skills to repo
+        written = write_skills(selected, repo_path, ide)
+
+        # 6. Update README
+        update_readme(repo_path, selected, ide)
+
+        # 7. Summary
+        typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
+        for path in written:
+            typer.echo(f"  + {path.name}")
+        typer.echo("\nUpdated README with skills documentation.")
+
+    except (typer.Exit, typer.Abort):
+        raise
+    except KeyboardInterrupt:
+        typer.echo("\nCancelled.")
+        raise typer.Exit(1)
     except EnvironmentError as e:
         typer.echo(f"\nError: {e}", err=True)
         raise typer.Exit(1)
-    if stack:
-        tech_names = ", ".join(t.name for t in stack)
-        typer.echo(f"\nDetected stack: {tech_names}\n")
-    else:
-        typer.echo("\nNo stack detected — showing all available skills.\n")
-
-    # 2. Load and match skills
-    skills = load_skills(_STARTERPACK_PATH)
-    matched = match_skills(skills, stack)
-
-    if not matched:
-        typer.echo("No applicable skills found for this stack.")
-        raise typer.Exit()
-
-    # 3. User selects skills
-    selected = prompt_skill_selection(matched)
-
-    if not selected:
-        typer.echo("No skills selected. Nothing to do.")
-        raise typer.Exit()
-
-    # 4. User selects IDE
-    ide = prompt_ide_selection(repo_path)
-
-    # 5. Write skills to repo
-    written = write_skills(selected, repo_path, ide)
-
-    # 6. Update README
-    update_readme(repo_path, selected, ide)
-
-    # 7. Summary
-    typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
-    for path in written:
-        typer.echo(f"  + {path.name}")
-    typer.echo("\nUpdated README with skills documentation.")
+    except PermissionError:
+        typer.echo(
+            f"\nError: permission denied writing to {repo_path}.\n"
+            "Check that you own that directory.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except Exception as e:
+        if debug:
+            raise
+        typer.echo(f"\nError: {e}", err=True)
+        typer.echo(
+            "\nRun with --debug for full details, or report the issue:\n"
+            "  https://github.com/diegojramirezs7/devpack/issues",
+            err=True,
+        )
+        raise typer.Exit(1)
