@@ -28,7 +28,7 @@ pytest -m integration
 pytest tests/test_matcher.py
 ```
 
-Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY` before running the CLI or integration tests.
+Run `devpack configure` to set `ANTHROPIC_API_KEY` before running the CLI or integration tests.
 
 ## Architecture
 
@@ -57,7 +57,7 @@ Each skill is a directory with a `SKILL.md` whose YAML frontmatter must include 
 
 ### Starterpack path
 
-`_STARTERPACK_PATH` in `cli.py` resolves relative to the installed package file — this works for editable installs (`uv pip install -e .`) but would need adjustment for a distributed package.
+`_STARTERPACK_PATH` in `cli.py` uses `importlib.resources.files("devpack") / "starterpack"`, which works correctly for both editable installs and installed wheels.
 
 ## Test structure
 

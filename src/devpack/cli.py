@@ -20,7 +20,7 @@ app = typer.Typer()
 
 def _version_callback(value: bool) -> None:
     if value:
-        v = importlib.metadata.version("devpack")
+        v = importlib.metadata.version("repopack")
         typer.echo(f"devpack {v}")
         raise typer.Exit()
 
@@ -59,7 +59,7 @@ def doctor() -> None:
     if not py_ok:
         all_ok = False
 
-    pkg_version = importlib.metadata.version("devpack")
+    pkg_version = importlib.metadata.version("repopack")
     check("Package", True, f"devpack {pkg_version}")
 
     source = api_key_source()

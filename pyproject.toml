@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "devpack"
-version = "0.1.0"
+name = "repopack"
+dynamic = ["version"]
 description = "CLI tool that helps developers add agent skills to an existing repo based on the detected tech stack."
 readme = "readme.md"
 requires-python = ">=3.11"
@@ -51,6 +51,11 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 devpack = ["starterpack/**/*"]
+
+[tool.setuptools_scm]
+# Falls back to this version when building from a checkout with no git tags.
+# Once you push a tag (e.g. v0.2.0), that tag becomes the version automatically.
+fallback_version = "0.1.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -11,7 +11,7 @@ CLI tool that detects a repo's tech stack and installs matching agent skills int
 uv pip install -e .
 
 # Once published, the recommended install will be:
-# pipx install devpack
+# pipx install repopack
 ```
 
 > `pipx` installs CLI tools in an isolated environment and automatically adds them to your PATH — no virtual environment activation needed.
@@ -81,8 +81,10 @@ After installing, restart your shell (or `source ~/.zshrc`) to activate completi
 uv pip install -e ".[dev]"
 
 # Run tests (no API key needed)
-pytest -m "not integration"
+uv run pytest -m "not integration"
 
 # Run integration tests (requires ANTHROPIC_API_KEY)
-pytest -m integration
+uv run pytest -m integration
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for a full guide including project structure, how to add a skill, and the release process.

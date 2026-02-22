@@ -1,0 +1,64 @@
+name: Publish
+
+# Triggered by any push to the `release` branch.
+# Workflow: develop on main → when ready, tag the commit (v0.2.0) → merge into release → this runs.
+# The `release` branch should be protected in GitHub: Settings → Branches → Add rule.
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]"
+
+      - name: Run tests
+        run: uv run pytest -m "not integration" -q
+
+  publish:
+    name: Build and publish
+    needs: test
+    runs-on: ubuntu-latest
+
+    # This environment must be configured in your repo settings
+    # (Settings → Environments → pypi) and matched to a Trusted Publisher
+    # entry on PyPI (pypi.org → Your account → Publishing → Add a new publisher).
+    # No API token is needed — GitHub and PyPI authenticate via OIDC.
+    environment: pypi
+
+    permissions:
+      id-token: write # required for OIDC / Trusted Publisher auth with PyPI
+      contents: write # required to create a GitHub Release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needed for setuptools-scm to read the tag version
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build wheel and sdist
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*
