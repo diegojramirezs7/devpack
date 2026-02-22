@@ -51,6 +51,18 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Check version is release-ready
+        run: |
+          VERSION=$(python -c "from setuptools_scm import get_version; print(get_version())")
+          echo "Detected version: $VERSION"
+          if echo "$VERSION" | grep -q '+'; then
+            echo ""
+            echo "Error: version '$VERSION' contains a local segment (+...)."
+            echo "This means the current commit is not tagged."
+            echo "Tag it first: git tag v<X.Y.Z> && git push origin v<X.Y.Z>"
+            exit 1
+          fi
+
       - name: Build wheel and sdist
         run: uv build
 
