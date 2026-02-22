@@ -8,7 +8,7 @@ import typer
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 
-from devpack.config import append_to_shell_rc, load_api_key, save_to_config_file
+from devpack.config import api_key_source, append_to_shell_rc, load_api_key, save_to_config_file
 from devpack.detector import detect_stack
 from devpack.matcher import load_skills, match_skills
 from devpack.prompter import prompt_ide_selection, prompt_skill_selection
@@ -40,6 +40,44 @@ def main(
 
 
 _STARTERPACK_PATH = importlib.resources.files("devpack") / "starterpack"
+
+
+@app.command("doctor")
+def doctor() -> None:
+    """Check your devpack installation."""
+    import sys
+
+    all_ok = True
+
+    def check(label: str, ok: bool, detail: str) -> None:
+        status = "✓" if ok else "✗"
+        typer.echo(f"  {label:<14}{detail}  {status}")
+
+    v = sys.version_info
+    py_ok = v >= (3, 11)
+    check("Python", py_ok, f"{v.major}.{v.minor}.{v.micro}" + ("" if py_ok else "  (requires 3.11+)"))
+    if not py_ok:
+        all_ok = False
+
+    pkg_version = importlib.metadata.version("devpack")
+    check("Package", True, f"devpack {pkg_version}")
+
+    source = api_key_source()
+    if source:
+        check("API key", True, f"found in {source}")
+    else:
+        check("API key", False, "not set  —  run `devpack configure`")
+        all_ok = False
+
+    skills = load_skills(_STARTERPACK_PATH)
+    check("Starterpack", True, f"{len(skills)} skills loaded")
+
+    typer.echo()
+    if all_ok:
+        typer.echo("Everything looks good.")
+    else:
+        typer.echo("Some checks failed. See above for details.")
+        raise typer.Exit(1)
 
 
 @app.command("configure")

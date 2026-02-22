@@ -1,39 +1,72 @@
-## Dev Pack
-Tool that helps developers add appropriate agent skills to an existing repo based on the detected tech stack.
+# DevPack
 
-Eventually, it will also help developers start new projects providing different tech stack options.
-It helps you integrate your personal or organizational best practices and preferred tools seamlessly.
+CLI tool that detects a repo's tech stack and installs matching agent skills into your IDE's skills directory (`.claude/skills/`, `.cursor/skills/`, `.agents/skills/`).
 
-It will help developers enforce framework specific best practices.
+## Installation
 
-## Setup
-
-### 1. Install
+**Requires Python 3.11+**
 
 ```bash
-uv sync
+# Install in editable mode (until published to PyPI)
+uv pip install -e .
+
+# Once published, the recommended install will be:
+# pipx install devpack
 ```
 
-### 2. Configure your API key
+> `pipx` installs CLI tools in an isolated environment and automatically adds them to your PATH — no virtual environment activation needed.
 
-Copy the example env file and add your Anthropic API key:
+## Quick start
+
+**1. Configure your Anthropic API key:**
 
 ```bash
-cp .env.example .env
+devpack configure
 ```
 
-Then edit `.env`:
+This walks you through saving your key to `~/.config/devpack/.env` (or your preferred location). You can get an API key at [console.anthropic.com](https://console.anthropic.com).
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-You can get an API key at [console.anthropic.com](https://console.anthropic.com).
-
-### 3. Run
+**2. Add skills to a repo:**
 
 ```bash
-devpack add-skills /path/to/your/repo
+devpack add-skills                  # target: current directory
+devpack add-skills ./path/to/repo   # target: specific path
 ```
 
-DevPack will analyze your repo with Claude and prompt you to select matching agent skills to install.
+DevPack will analyze the repo with Claude, show you a checklist of matching skills, and copy them into the IDE directory you choose.
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `devpack add-skills [PATH]` | Detect stack and install matching skills |
+| `devpack configure` | Set up your Anthropic API key |
+| `devpack doctor` | Check that your installation is healthy |
+| `devpack --version` | Print the installed version |
+
+## Options
+
+```bash
+devpack add-skills --debug [PATH]   # show full tracebacks and verbose API logs
+```
+
+## How it works
+
+1. **Detect** — a Claude agent reads the repo's manifest files (`package.json`, `pyproject.toml`, etc.) and identifies the tech stack
+2. **Match** — the detected technologies are matched against the bundled skill library
+3. **Select** — you confirm which skills to add and which IDE to target
+4. **Write** — skill directories are copied into `<repo>/<ide>/skills/<skill-id>/`
+5. **README** — a skills table is appended to the repo's `README.md`
+
+## Development
+
+```bash
+# Install with dev dependencies
+uv pip install -e ".[dev]"
+
+# Run tests (no API key needed)
+pytest -m "not integration"
+
+# Run integration tests (requires ANTHROPIC_API_KEY)
+pytest -m integration
+```
