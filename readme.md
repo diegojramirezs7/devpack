@@ -50,6 +50,22 @@ DevPack will analyze the repo with Claude, show you a checklist of matching skil
 devpack add-skills --debug [PATH]   # show full tracebacks and verbose API logs
 ```
 
+## Shell completions
+
+DevPack supports tab completion for bash, zsh, and fish. Run once after installing:
+
+```bash
+devpack --install-completion   # detects your current shell automatically
+```
+
+To preview what gets added to your shell config without writing it:
+
+```bash
+devpack --show-completion
+```
+
+After installing, restart your shell (or `source ~/.zshrc`) to activate completions.
+
 ## How it works
 
 1. **Detect** — a Claude agent reads the repo's manifest files (`package.json`, `pyproject.toml`, etc.) and identifies the tech stack
