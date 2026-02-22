@@ -7,14 +7,15 @@ CLI tool that detects a repo's tech stack and installs matching agent skills int
 **Requires Python 3.11+**
 
 ```bash
-# Install in editable mode (until published to PyPI)
-uv pip install -e .
-
-# Once published, the recommended install will be:
-# pipx install repopack
+git clone git@github.com:diegojramirezs7/devpack.git
+cd devpack
+uv tool install -e .
+devpack configure
 ```
 
-> `pipx` installs CLI tools in an isolated environment and automatically adds them to your PATH — no virtual environment activation needed.
+`uv tool install` puts `devpack` in your PATH in an isolated environment. The `-e` flag means `git pull` picks up changes immediately — no reinstall needed.
+
+> **Alternative:** `pipx install -e .` works the same way if you prefer pipx.
 
 ## Quick start
 
