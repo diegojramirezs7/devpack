@@ -1,12 +1,12 @@
 name: Publish
 
-# Triggered by any push to the `release` branch.
-# Workflow: develop on main → when ready, tag the commit (v0.2.0) → merge into release → this runs.
-# The `release` branch should be protected in GitHub: Settings → Branches → Add rule.
+# Triggered by pushing a version tag on main.
+# Workflow: merge PR into main → git tag v0.2.0 && git push origin v0.2.0 → this runs.
+# To restrict who can push tags: Settings → Rules → Tag protection → pattern: v*
 on:
   push:
-    branches:
-      - release
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   test:

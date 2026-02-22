@@ -74,7 +74,13 @@ To test that your skill is matched correctly, add a fixture repo to `tests/fixtu
 
 ## Release process
 
-1. Work on a feature branch, open a PR into `main`
-2. Once `main` is in a releasable state, tag the commit: `git tag v0.2.0`
-3. Open a PR from `main` into `release` — CI runs tests automatically
-4. Merge the PR — the publish workflow builds the wheel and uploads to PyPI
+1. Work on a feature branch, open a PR into `main` — CI runs tests automatically
+2. Merge the PR
+3. Tag the latest `main` and push — this triggers the publish workflow:
+   ```bash
+   git pull origin main
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+To restrict who can push version tags: GitHub → Settings → Rules → Tag protection → pattern `v*`.
