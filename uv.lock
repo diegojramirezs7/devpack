@@ -805,7 +805,7 @@ wheels = [
 ]
 
 [[package]]
-name = "repopack"
+name = "devpack-kit"
 source = { editable = "." }
 dependencies = [
     { name = "claude-agent-sdk" },

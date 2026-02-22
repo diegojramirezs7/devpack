@@ -8,7 +8,12 @@ import typer
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 
-from devpack.config import api_key_source, append_to_shell_rc, load_api_key, save_to_config_file
+from devpack.config import (
+    api_key_source,
+    append_to_shell_rc,
+    load_api_key,
+    save_to_config_file,
+)
 from devpack.detector import detect_stack
 from devpack.matcher import load_skills, match_skills
 from devpack.prompter import prompt_ide_selection, prompt_skill_selection
@@ -20,8 +25,8 @@ app = typer.Typer()
 
 def _version_callback(value: bool) -> None:
     if value:
-        v = importlib.metadata.version("repopack")
-        typer.echo(f"devpack {v}")
+        v = importlib.metadata.version("devpack-kit")
+        typer.echo(f"devpack-kit {v}")
         raise typer.Exit()
 
 
@@ -55,11 +60,15 @@ def doctor() -> None:
 
     v = sys.version_info
     py_ok = v >= (3, 11)
-    check("Python", py_ok, f"{v.major}.{v.minor}.{v.micro}" + ("" if py_ok else "  (requires 3.11+)"))
+    check(
+        "Python",
+        py_ok,
+        f"{v.major}.{v.minor}.{v.micro}" + ("" if py_ok else "  (requires 3.11+)"),
+    )
     if not py_ok:
         all_ok = False
 
-    pkg_version = importlib.metadata.version("repopack")
+    pkg_version = importlib.metadata.version("devpack-kit")
     check("Package", True, f"devpack {pkg_version}")
 
     source = api_key_source()
@@ -146,7 +155,9 @@ def add_skills(
     repo_path: Annotated[
         Path, typer.Argument(help="Path to the target repository.")
     ] = Path("."),
-    debug: bool = typer.Option(False, "--debug", help="Show full tracebacks and verbose API logging."),
+    debug: bool = typer.Option(
+        False, "--debug", help="Show full tracebacks and verbose API logging."
+    ),
 ) -> None:
     """Detect your stack and add matching agent skills to the repo."""
     if debug:

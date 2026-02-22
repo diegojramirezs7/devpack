@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "repopack"
+name = "devpack-kit"
 dynamic = ["version"]
 description = "CLI tool that helps developers add agent skills to an existing repo based on the detected tech stack."
 readme = "readme.md"
