@@ -53,15 +53,14 @@ jobs:
 
       - name: Check version is release-ready
         run: |
-          VERSION=$(python -c "from setuptools_scm import get_version; print(get_version())")
-          echo "Detected version: $VERSION"
-          if echo "$VERSION" | grep -q '+'; then
+          # git describe fails outright if no tag exists; --exact-match fails if HEAD is not tagged.
+          if ! git describe --tags --exact-match HEAD 2>/dev/null; then
             echo ""
-            echo "Error: version '$VERSION' contains a local segment (+...)."
-            echo "This means the current commit is not tagged."
-            echo "Tag it first: git tag v<X.Y.Z> && git push origin v<X.Y.Z>"
+            echo "Error: the current commit is not exactly on a version tag."
+            echo "Tag it first:  git tag v<X.Y.Z> && git push origin v<X.Y.Z>"
             exit 1
           fi
+          echo "Version tag found: $(git describe --tags --exact-match HEAD)"
 
       - name: Build wheel and sdist
         run: uv build
