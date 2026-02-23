@@ -5,6 +5,9 @@ license: MIT
 metadata:
   author: vercel
   version: "1.0.0"
+  tags:
+    - react
+    - nextjs
 ---
 
 # Vercel React Best Practices

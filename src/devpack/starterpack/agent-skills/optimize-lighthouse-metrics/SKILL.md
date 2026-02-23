@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: web-quality-skills
   version: "1.0"
+  tags:
+    - frontend
 ---
 
 # Performance optimization

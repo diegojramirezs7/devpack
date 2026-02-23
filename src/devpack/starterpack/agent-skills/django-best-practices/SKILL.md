@@ -5,6 +5,8 @@ license: MIT
 metadata:
   author: community
   version: "1.0.0"
+  tags:
+    - django
 ---
 
 # Django Best Practices

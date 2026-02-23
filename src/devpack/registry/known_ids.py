@@ -1,16 +1,33 @@
 KNOWN_TECHNOLOGY_IDS: list[str] = [
     # Languages
-    "python", "javascript", "typescript", "ruby", "go", "rust",
+    "python",
+    "javascript",
+    "typescript",
+    "ruby",
+    "go",
+    "rust",
     # Python frameworks
-    "django", "fastapi", "flask",
+    "django",
+    "fastapi",
+    "flask",
     # JS frameworks
-    "react", "vue", "nextjs", "vite", "angular",
+    "react",
+    "vue",
+    "nextjs",
+    "vite",
+    "angular",
     # Ruby
     "rails",
     # Databases
-    "postgres", "mysql", "sqlite", "redis", "mongodb",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "redis",
+    "mongodb",
     # Infrastructure
-    "docker", "kubernetes",
+    "docker",
+    "kubernetes",
     # Other common
-    "celery", "graphql",
+    "celery",
+    "graphql",
 ]

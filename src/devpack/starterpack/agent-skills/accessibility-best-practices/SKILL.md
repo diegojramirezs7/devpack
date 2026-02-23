@@ -1,6 +1,9 @@
 ---
 name: accessibility-best-practices
 description: Review and enforce WCAG accessibility best practices when writing or reviewing frontend code. Use this skill whenever you are writing new UI components, reviewing existing HTML/JSX/CSS, refactoring frontend code, or when the user mentions accessibility, a11y, WCAG, screen readers, keyboard navigation, or asks for an accessibility audit. Also trigger when working on forms, images, links, navigation, modals, or any interactive widgets — these are high-risk areas for accessibility issues. Even if the user doesn't explicitly mention accessibility, apply these checks whenever you're touching frontend code.
+metadata:
+  tags:
+    - frontend
 ---
 
 # Accessibility Review Skill

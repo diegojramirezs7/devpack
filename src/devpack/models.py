@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -25,6 +25,7 @@ class Skill:
     name: str
     description: str
     path: Path
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass

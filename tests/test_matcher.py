@@ -48,8 +48,8 @@ def test_load_skills_skips_malformed_frontmatter(tmp_path: Path):
 
 # --- match_skills ---
 
-def _make_skill(id: str, description: str = "") -> Skill:
-    return Skill(id=id, name=id, description=description, path=Path("/fake"))
+def _make_skill(id: str, tags: list[str] | None = None) -> Skill:
+    return Skill(id=id, name=id, description="", path=Path("/fake"), tags=tags or [])
 
 
 def _make_tech(id: str, name: str = "", is_frontend: bool = False) -> DetectedTechnology:
@@ -102,22 +102,27 @@ class TestMatchSkillsWithRealSkills:
 
 
 class TestMatchSkillsLogic:
-    def test_matches_by_skill_id(self):
-        skills = [_make_skill("django-best-practices", "Best practices for Django apps")]
+    def test_matches_by_tech_tag(self):
+        skills = [_make_skill("django-best-practices", tags=["django"])]
         stack = [_make_tech("django")]
         assert match_skills(skills, stack) == skills
 
-    def test_matches_by_description(self):
-        skills = [_make_skill("my-skill", "React component patterns and hooks")]
+    def test_matches_by_frontend_tag(self):
+        skills = [_make_skill("my-skill", tags=["frontend"])]
         stack = [_make_tech("react", is_frontend=True)]
         assert match_skills(skills, stack) == skills
 
-    def test_general_skill_always_included(self):
-        skills = [_make_skill("feature-implementation-plan", "Plan features")]
+    def test_frontend_tag_not_matched_without_frontend_tech(self):
+        skills = [_make_skill("my-skill", tags=["frontend"])]
+        stack = [_make_tech("django")]
+        assert match_skills(skills, stack) == []
+
+    def test_general_tag_always_included(self):
+        skills = [_make_skill("any-skill", tags=["general"])]
         stack = [_make_tech("rust")]
         assert match_skills(skills, stack) == skills
 
-    def test_no_match_excluded(self):
-        skills = [_make_skill("ruby-style-guide", "Ruby conventions")]
+    def test_no_tags_excluded(self):
+        skills = [_make_skill("ruby-style-guide")]
         stack = [_make_tech("python")]
         assert match_skills(skills, stack) == []

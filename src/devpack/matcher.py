@@ -5,19 +5,6 @@ import yaml
 
 from devpack.models import DetectedTechnology, Skill
 
-# Skills always offered regardless of detected stack.
-GENERAL_SKILL_IDS: set[str] = {"feature-implementation-plan"}
-
-# Keywords in a skill's description that make it relevant for any frontend stack.
-FRONTEND_KEYWORDS: set[str] = {
-    "web",
-    "performance",
-    "accessibility",
-    "frontend",
-    "lighthouse",
-    "seo",
-}
-
 
 def load_skills(starterpack_path: Path) -> list[Skill]:
     """Scan starterpack_path/agent-skills/ and return all valid skills."""
@@ -46,12 +33,16 @@ def load_skills(starterpack_path: Path) -> list[Skill]:
             )
             continue
 
+        metadata = frontmatter.get("metadata") or {}
+        tags = metadata.get("tags") or []
+
         skills.append(
             Skill(
                 id=skill_dir.name,
                 name=name,
                 description=description,
                 path=skill_dir,
+                tags=[t.lower() for t in tags],
             )
         )
 
@@ -63,15 +54,10 @@ def match_skills(skills: list[Skill], stack: list[DetectedTechnology]) -> list[S
     if not stack:
         return skills
 
-    tech_terms = {t.id.lower() for t in stack} | {t.name.lower() for t in stack}
+    detected_ids = {t.id.lower() for t in stack}
     has_frontend = any(t.is_frontend for t in stack)
 
-    matched = []
-    for skill in skills:
-        if _is_relevant(skill, tech_terms, has_frontend):
-            matched.append(skill)
-
-    return matched
+    return [s for s in skills if _is_relevant(s, detected_ids, has_frontend)]
 
 
 # --- Private helpers ---
@@ -99,19 +85,11 @@ def _parse_frontmatter(skill_md: Path) -> dict | None:
         return None
 
 
-def _is_relevant(skill: Skill, tech_terms: set[str], has_frontend: bool) -> bool:
-    # Tier 1: always include skills that apply to every project.
-    if skill.id in GENERAL_SKILL_IDS:
+def _is_relevant(skill: Skill, detected_ids: set[str], has_frontend: bool) -> bool:
+    if "general" in skill.tags:
         return True
-
-    skill_text = f"{skill.id} {skill.description}".lower()
-
-    # Tier 2: include if the skill explicitly mentions a detected technology.
-    if any(term in skill_text for term in tech_terms):
+    if has_frontend and "frontend" in skill.tags:
         return True
-
-    # Tier 3: include cross-cutting frontend skills whenever any frontend tech is present.
-    if has_frontend and any(kw in skill_text for kw in FRONTEND_KEYWORDS):
+    if detected_ids.intersection(skill.tags):
         return True
-
     return False

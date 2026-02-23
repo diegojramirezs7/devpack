@@ -7,6 +7,10 @@ description: >
   this skill for any request like "document this component", "add JSDoc to my hooks",
   "generate a spec for my React app", "document my Redux store", or anytime a .tsx/.ts/.jsx
   file from a React project is being discussed and documentation is the goal.
+metadata:
+  tags:
+    - react
+    - nextjs
 ---
 
 # React Documentation Skill

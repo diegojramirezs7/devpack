@@ -8,6 +8,9 @@ description: >
   my models", "add docstrings to this view", "generate a spec for my Django app", "write
   docs for my serializers", or anytime a .py file from a Django project is being discussed
   and documentation is the goal.
+metadata:
+  tags:
+    - django
 ---
 
 # Django Documentation Skill

@@ -1,6 +1,9 @@
 ---
 name: website-tags-best-practices
 description: Check and enforce proper HTML document structure, meta tags, SEO fundamentals, favicons, Open Graph tags, Twitter cards, and skip navigation in web apps. Use this skill whenever you are creating a new HTML page, layout template, or document shell — including .html, .php, .njk, .liquid, .astro, .vue, .jsx/.tsx files that render a full page. Also trigger when the user mentions SEO, meta tags, OG tags, social sharing previews, favicons, document head, or page templates. Even if the user doesn't explicitly ask, apply these checks whenever you're writing or reviewing a file that contains a <head> or <html> element.
+metadata:
+  tags:
+    - frontend
 ---
 
 # HTML Standards Skill

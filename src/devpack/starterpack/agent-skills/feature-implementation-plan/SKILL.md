@@ -1,6 +1,9 @@
 ---
 name: feature-implementation-plan
 description: Transform a tech-agnostic feature specification (title, description, acceptance criteria) into a codebase-specific implementation plan. Use when the user has a defined feature and wants a concrete plan for implementing it in their repo. Designed for use with Claude Code. Common triggers include "plan this feature", "how would I implement this", "create an implementation plan", or when the user provides a feature spec and wants to know how to build it in their codebase.
+metadata:
+  tags:
+    - general
 ---
 
 # Implementation Planner
