@@ -17,6 +17,7 @@ from devpack.config import (
 from devpack.detector import detect_stack
 from devpack.matcher import load_skills, match_skills
 from devpack.prompter import prompt_ide_selection, prompt_skill_selection
+from devpack.guide_writer import write_guide
 from devpack.readme_updater import update_readme
 from devpack.writer import write_skills
 
@@ -210,11 +211,18 @@ def add_skills(
         # 6. Update README
         update_readme(repo_path, selected, ide)
 
-        # 7. Summary
+        # 7. Write local guide
+        typer.echo("Generating skill usage guide...")
+        guide_path = write_guide(repo_path, selected, ide, stack)
+
+        # 8. Summary
         typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
         for path in written:
             typer.echo(f"  + {path.name}")
         typer.echo("\nUpdated README with skills documentation.")
+        typer.echo(
+            f"Wrote local usage guide to {guide_path.relative_to(repo_path)} (gitignored)"
+        )
 
     except (typer.Exit, typer.Abort):
         raise
