@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from devpack.detector import detect_stack
-from devpack.models import DetectedTechnology, StackDetectionResult
+from devpack.detector import detect_stack, detect_context
+from devpack.models import DetectedTechnology, StackDetectionResult, ProjectContext, SetupCommands
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -54,6 +54,51 @@ def test_detect_stack_frontend_flag_preserved(mock_detect, tmp_path):
     by_id = {t.id: t for t in result}
     assert by_id["react"].is_frontend is True
     assert by_id["python"].is_frontend is False
+
+
+def _make_context(*tech_ids: str) -> ProjectContext:
+    technologies = [
+        DetectedTechnology(id=tid, name=tid.title(),
+                           is_frontend=tid in {"react", "javascript", "typescript"})
+        for tid in tech_ids
+    ]
+    return ProjectContext(
+        technologies=technologies,
+        summary="Test project.",
+        directory_structure="src/  # source\ntests/  # tests",
+        setup_commands=SetupCommands(install="npm install", dev="npm run dev",
+                                     test="npm test", build=None),
+        runtime_versions={"node": "20"},
+    )
+
+
+@patch("devpack.detector.detect_project_context", new_callable=AsyncMock)
+def test_detect_context_returns_project_context(mock_detect, tmp_path):
+    mock_detect.return_value = _make_context("react", "typescript")
+    result = detect_context(tmp_path)
+    assert isinstance(result, ProjectContext)
+
+
+@patch("devpack.detector.detect_project_context", new_callable=AsyncMock)
+def test_detect_context_technologies_preserved(mock_detect, tmp_path):
+    mock_detect.return_value = _make_context("python", "django")
+    result = detect_context(tmp_path)
+    assert {t.id for t in result.technologies} == {"python", "django"}
+
+
+@patch("devpack.detector.detect_project_context", new_callable=AsyncMock)
+def test_detect_context_passes_repo_path(mock_detect, tmp_path):
+    mock_detect.return_value = _make_context()
+    detect_context(tmp_path)
+    mock_detect.assert_called_once_with(tmp_path)
+
+
+@patch("devpack.detector.detect_project_context", new_callable=AsyncMock)
+def test_detect_context_setup_commands_preserved(mock_detect, tmp_path):
+    mock_detect.return_value = _make_context("react")
+    result = detect_context(tmp_path)
+    assert result.setup_commands.dev == "npm run dev"
+    assert result.runtime_versions == {"node": "20"}
 
 
 # --- Integration tests (require ANTHROPIC_API_KEY; skipped in CI) ---

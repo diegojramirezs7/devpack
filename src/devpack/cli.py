@@ -14,7 +14,7 @@ from devpack.config import (
     load_api_key,
     save_to_config_file,
 )
-from devpack.detector import detect_stack
+from devpack.detector import detect_stack, detect_context
 from devpack.matcher import load_skills, match_skills
 from devpack.prompter import prompt_ide_selection, prompt_skill_selection
 from devpack.guide_writer import write_guide
@@ -247,5 +247,96 @@ def add_skills(
             "\nRun with --debug for full details, or report the issue:\n"
             "  https://github.com/diegojramirezs7/devpack/issues",
             err=True,
+        )
+        raise typer.Exit(1)
+
+
+@app.command("init")
+def init(
+    repo_path: Annotated[
+        Path, typer.Argument(help="Path to the target repository.")
+    ] = Path("."),
+    debug: bool = typer.Option(False, "--debug", help="Show full tracebacks."),
+) -> None:
+    """Set up your repo with agent skills and AI config."""
+    if debug:
+        os.environ["ANTHROPIC_LOG"] = "debug"
+
+    repo_path = repo_path.resolve()
+
+    if not repo_path.is_dir():
+        raise typer.BadParameter(f"{repo_path} is not a directory.")
+    if not os.access(repo_path, os.W_OK):
+        typer.echo(f"Error: no write permission for {repo_path}.", err=True)
+        raise typer.Exit(1)
+    if not any(repo_path.iterdir()):
+        typer.echo("Warning: the target directory appears to be empty.\n")
+
+    try:
+        # 1. Single SDK call — gather all context upfront
+        typer.echo("Analyzing your project with Claude...")
+        context = detect_context(repo_path)
+
+        if context.technologies:
+            tech_names = ", ".join(t.name for t in context.technologies)
+            typer.echo(f"\nDetected stack: {tech_names}")
+        else:
+            typer.echo("\nNo stack detected — showing all available skills.")
+        if context.setup_commands.dev:
+            typer.echo(f"Dev server:    {context.setup_commands.dev}")
+        if context.setup_commands.test:
+            typer.echo(f"Test command:  {context.setup_commands.test}")
+        typer.echo()
+
+        # 2–4. Skills: match → prompt → write  (identical to add-skills)
+        skills  = load_skills(_STARTERPACK_PATH)
+        matched = match_skills(skills, context.technologies)
+
+        if not matched:
+            typer.echo("No applicable skills found for this stack.")
+            raise typer.Exit()
+
+        selected = prompt_skill_selection(matched)
+        if not selected:
+            typer.echo("No skills selected. Nothing to do.")
+            raise typer.Exit()
+
+        ide = prompt_ide_selection(repo_path)
+        written = write_skills(selected, repo_path, ide)
+        update_readme(repo_path, selected, ide)
+
+        typer.echo("Generating skill usage guide...")
+        guide_path = write_guide(repo_path, selected, ide, context.technologies)
+
+        # Summary
+        typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
+        for path in written:
+            typer.echo(f"  + {path.name}")
+        typer.echo("\nUpdated README with skills documentation.")
+        typer.echo(
+            f"Wrote local usage guide to {guide_path.relative_to(repo_path)} (gitignored)"
+        )
+
+    except (typer.Exit, typer.Abort):
+        raise
+    except KeyboardInterrupt:
+        typer.echo("\nCancelled.")
+        raise typer.Exit(1)
+    except EnvironmentError as e:
+        typer.echo(f"\nError: {e}", err=True)
+        raise typer.Exit(1)
+    except PermissionError:
+        typer.echo(
+            f"\nError: permission denied writing to {repo_path}.\n"
+            "Check that you own that directory.", err=True,
+        )
+        raise typer.Exit(1)
+    except Exception as e:
+        if debug:
+            raise
+        typer.echo(f"\nError: {e}", err=True)
+        typer.echo(
+            "\nRun with --debug for full details, or report the issue:\n"
+            "  https://github.com/diegojramirezs7/devpack/issues", err=True,
         )
         raise typer.Exit(1)

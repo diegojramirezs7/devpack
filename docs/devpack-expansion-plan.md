@@ -10,18 +10,89 @@ This document outlines what else the tool can automatically add to a repo to enf
 
 ## Extension Points in the Current Pipeline
 
-The existing pipeline has three natural hooks for new features:
+The `init` command (Phase 0) runs all phases in sequence using a single `ProjectContext` gathered upfront. Each phase is a new extension point — given the same context object, it decides what to write, merge, or skip.
 
-1. **New "pack types"** alongside agent skills — the same detect → match → prompt → write pattern can deliver other artifacts (config files, YAML workflows, `.vscode/extensions.json`, etc.).
-2. **New writers** — `writer.py` currently does `shutil.copytree`. New writers can template-fill files, merge into existing JSON/YAML, or run shell commands.
-3. **New starterpack directories** — `starterpack/` already has `agent-skills/`. New directories like `ai-config/`, `ide-extensions/`, `code-quality/`, `workflows/`, `git-hooks/` house the new artifacts.
+New starterpack directories house the artifacts for each phase: `starterpack/` already has `agent-skills/`. New directories like `ai-config/`, `ide-extensions/`, `code-quality/`, `workflows/`, `git-hooks/` will follow.
 
 ### Safety principle
 
-The tool should follow a **"never overwrite, always extend"** rule for everything outside IDE skill directories:
-- If a file exists: offer to merge or skip, never replace.
+The tool follows a **"never overwrite, always extend"** rule for everything outside IDE skill directories:
+- If a file exists: merge or skip, never replace.
 - If unsure how to merge: skip and print a manual instruction.
 - Always report what was added, what was skipped, and why.
+
+---
+
+## Phase 0 — `init` Command and Project Context
+
+**Goal:** Introduce `devpack init` as the primary orchestrator and establish a single upfront Claude SDK call that gathers everything every downstream phase needs — so no phase ever triggers a redundant API call.
+
+---
+
+### The `init` command
+
+`devpack init [PATH]` is the new entry point for full repo setup. It runs all phases in sequence, passing a shared `ProjectContext` object through each step.
+
+`devpack add-skills` is **unchanged** — it continues to run its own detect → match → prompt → write pipeline independently and is unaffected by this work.
+
+---
+
+### The initial SDK call — `ProjectContext`
+
+Currently `detect_tech_stack` returns `StackDetectionResult(technologies, summary)`. The `init` command uses an extended version of this call that returns a richer model:
+
+```python
+class SetupCommands:
+    install: str | None   # e.g. "npm install", "pip install -r requirements.txt"
+    dev:     str | None   # e.g. "npm run dev", "python manage.py runserver"
+    test:    str | None   # e.g. "pytest", "npm test"
+    build:   str | None   # e.g. "npm run build"
+
+class ProjectContext:
+    technologies:        list[DetectedTechnology]  # for skill matching
+    summary:             str                        # short project description
+    directory_structure: str                        # annotated top-level tree with key files noted
+    setup_commands:      SetupCommands              # inferred from package.json, Makefile, etc.
+    runtime_versions:    dict[str, str]             # e.g. {"python": "3.11", "node": "20"}
+```
+
+The agent uses the same `Read/Glob/Grep` tools as the existing detector, but the prompt is extended to also capture structure, setup commands, and runtime versions. The result is validated as structured output before the pipeline continues.
+
+**What each field is used for:**
+
+| Field | Used by |
+|---|---|
+| `technologies` | Skill matching, IDE extension matching, linter config selection, pre-commit hook selection |
+| `summary` | `agents.md` stack summary section |
+| `directory_structure` | `agents.md` directory structure section |
+| `setup_commands` | `agents.md` key commands, `CONTRIBUTING.md` template, CI workflow templates |
+| `runtime_versions` | CI workflow templates (Python/Node version matrix), linter config defaults |
+
+---
+
+### `init` pipeline
+
+```
+devpack init [PATH]
+    │
+    ├─ 1. SDK call → ProjectContext          (single API call, all context gathered here)
+    │
+    ├─ 2. Match skills                       (uses ProjectContext.technologies)
+    ├─ 3. Prompt: skill + IDE selection
+    ├─ 4. Write skills
+    │
+    ├─ 5. Phase 1 — AI config files          (uses ProjectContext + selected skills)
+    ├─ 6. Phase 2 — IDE extensions           (uses ProjectContext.technologies)
+    ├─ 7. Phase 3 — Linter/formatter config  (uses ProjectContext.technologies + runtime_versions)
+    ├─ 8. Phase 4 — Documentation templates  (uses ProjectContext.setup_commands + technologies)
+    ├─ 9. Phase 5 — Security baseline        (uses ProjectContext.technologies)
+    ├─ 10. Phase 6 — CI/CD workflows         (uses ProjectContext.runtime_versions + setup_commands)
+    ├─ 11. Phase 7 — Pre-commit hooks        (uses ProjectContext.technologies)
+    │
+    └─ N. Summary: print what was written, what was skipped, and any manual steps required
+```
+
+Each phase receives `ProjectContext` and the list of selected skills. No phase triggers its own detection call.
 
 ---
 
@@ -29,7 +100,9 @@ The tool should follow a **"never overwrite, always extend"** rule for everythin
 
 **Goal:** Seed the repo with AI assistant context and prevent secrets from leaking into LLM context windows.
 
-**Integration pattern:** These are mostly new files dropped at the repo root or a known path. Very low risk — they are either skipped if they already exist or safely merged (append-only for ignore files).
+**Integration pattern:** Ignore files are merged entry-by-entry. `agents.md` is assembled in-process from `ProjectContext` — no additional SDK call needed.
+
+---
 
 ### AI ignore files
 
@@ -37,10 +110,9 @@ The tool should follow a **"never overwrite, always extend"** rule for everythin
 |---|---|
 | `.claudeignore` | Claude Code |
 | `.cursorignore` | Cursor |
-| `.aiignore` | General convention |
-| `.copilotignore` | GitHub Copilot (emerging) |
+| `.copilotignore` | GitHub Copilot |
 
-A universal baseline to copy into all repos:
+**Universal baseline:**
 ```
 .env
 .env.*
@@ -50,27 +122,24 @@ A universal baseline to copy into all repos:
 secrets/
 ```
 
-**How it works:** Pure copy-if-not-exists. If the file already exists, append only the missing entries with an `# Added by devpack` comment block. No risk of data loss.
+**How it works:** Each file is handled independently. If the file does not exist, it is created with the full baseline. If it already exists, each baseline entry is checked individually — entries already present are left untouched, missing entries are appended at the end under an `# Added by devpack` comment. Nothing is removed or reordered.
 
 ---
 
-### AI config/instruction files
+### AI config/instruction file
 
-| File | Tool |
-|---|---|
-| `CLAUDE.md` | Claude Code |
-| `.cursorrules` | Cursor |
-| `.github/copilot-instructions.md` | GitHub Copilot |
+Every IDE gets a single `agents.md` at the repo root — one shared file readable by Claude Code, Cursor, GitHub Copilot, and any other AI assistant.
 
-These files are generated (not copied from a static template) using the Claude SDK. The output is a focused, repo-specific document with three sections:
+`agents.md` is assembled in-process from `ProjectContext` and the selected skills list. No additional SDK call is made. The output contains three sections:
 
-1. **Stack summary** — what the project is, key commands, and detected conventions. Already available from `StackDetectionResult.summary`.
-2. **Directory structure** — a concise, annotated map of the top-level directories and important files so the AI assistant understands the layout without having to re-explore on every session.
-3. **Installed skills** — a list of the agent skills selected during this DevPack run, with a one-line description of each, so the assistant knows which skills are available to call on.
+1. **Stack summary** — sourced from `ProjectContext.summary`.
+2. **Directory structure** — sourced from `ProjectContext.directory_structure`.
+3. **Key commands** — sourced from `ProjectContext.setup_commands` (install, dev, test, build).
+4. **Installed skills** — the list of skills selected during this `init` run, with a one-line description of each.
 
-**How it works:** After the user confirms skill selection (end of the `prompter.py` step), DevPack makes a second Claude SDK call — a lightweight agent with `Glob` access to the target repo. It is given the stack summary and skill list and asked to produce the directory structure section and assemble the full config file. This keeps the output grounded in the actual repo rather than a generic template. The SDK call uses structured output or a tightly constrained prompt so the result is deterministic enough to write directly.
-
-These files are only written if they don't already exist — a hand-crafted `CLAUDE.md` should never be overwritten. If the file exists, offer to append only the skills list section (which is the most likely thing to be out of date).
+**How it works:**
+- **File does not exist** → assemble and write `agents.md` in full.
+- **File already exists** → do not overwrite. Offer to update only the **Installed skills** section, since that is the part most likely to be out of date after a new DevPack run.
 
 ---
 
@@ -78,7 +147,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 
 **Goal:** Ensure every collaborator who opens the repo gets prompted to install the right extensions for the stack.
 
-**Integration pattern:** A JSON file listing extension IDs. The tool merges into the file if it exists (read → deduplicate → write) or creates it if it doesn't. No runtime behavior — the IDE does the prompting.
+**Integration pattern:** A JSON file listing extension IDs. Merged into the file if it exists (read → deduplicate → write), created if it doesn't. No runtime behavior — the IDE does the prompting.
 
 ### Extension recommendation files
 
@@ -87,7 +156,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 | VS Code | `.vscode/extensions.json` |
 | Cursor | `.vscode/extensions.json` (Cursor reads the same file) |
 
-**How it works:** DevPack maintains a registry of extension IDs per tech tag. At write time, it reads the existing file (if any), appends the stack-matched IDs, deduplicates, and writes back. The format is a simple JSON object with a `"recommendations"` array — safe to merge programmatically.
+**How it works:** DevPack maintains a registry of extension IDs keyed by technology ID — the same IDs used in `ProjectContext.technologies`. At write time, it reads the existing file (if any), appends the matched extension IDs, deduplicates, and writes back. Safe to merge programmatically since the format is a simple JSON object with a `"recommendations"` array.
 
 ### What gets recommended (examples)
 
@@ -104,7 +173,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 
 **Goal:** Give developers in-editor feedback on style and correctness before any hook or CI run. Standardize line endings, indentation, and tool configuration across the team.
 
-**Integration pattern:** Config files dropped at the repo root. Preference is to write a standalone config file rather than modify an existing one (e.g., `ruff.toml` instead of merging into `pyproject.toml`). If a config file already exists, skip and report.
+**Integration pattern:** Config files dropped at the repo root. Prefer writing a standalone config file over modifying an existing one (e.g., `ruff.toml` instead of merging into `pyproject.toml`). If a config file already exists, skip and report.
 
 ### Files added by stack
 
@@ -112,12 +181,12 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 |---|---|---|
 | `.editorconfig` | All | Tabs vs spaces, line endings, trailing whitespace — respected by nearly every editor without a plugin |
 | `ruff.toml` | Python | Linting rules and line length. Written standalone to avoid touching `pyproject.toml` |
-| `pyproject.toml` snippet | Python (if no `pyproject.toml` exists yet) | Minimal Black + Ruff config |
+| `pyproject.toml` | Python (only if none exists) | Minimal Black + Ruff config |
 | `.prettierrc` | JS / TS | Formatting rules |
 | `eslint.config.js` | JS / TS | ESLint flat config (ESLint 9+ standard) |
-| `tsconfig.json` | TypeScript (only if none exists) | Strict mode baseline — skipped if any `tsconfig` is detected |
+| `tsconfig.json` | TypeScript (only if none exists) | Strict mode baseline |
 
-**How it works:** DevPack copies a stack-matched template from `starterpack/code-quality/`. `.editorconfig` is always safe to add. For Python, `ruff.toml` is preferred over touching `pyproject.toml`. For JS/TS, the flat config format (`eslint.config.js`) is used. `tsconfig.json` is only written if no `tsconfig*.json` exists in the repo — too many valid project-specific shapes exist to merge safely.
+**How it works:** Stack selection uses `ProjectContext.technologies`. For linter config defaults (line length, target Python/Node version), `ProjectContext.runtime_versions` is used to fill template tokens rather than hardcoding defaults. `tsconfig.json` is only written if no `tsconfig*.json` exists — too many valid project-specific shapes exist to merge safely.
 
 ---
 
@@ -125,7 +194,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 
 **Goal:** Reduce onboarding friction and standardize contribution workflows with templates GitHub renders natively.
 
-**Integration pattern:** Static files copied only if they don't already exist. No merging needed — templates are standalone. Frontend-detected repos get an accessibility checklist added to the PR template.
+**Integration pattern:** Static files copied only if they don't already exist. Frontend-detected repos get an accessibility checklist added to the PR template.
 
 ### Files added
 
@@ -138,7 +207,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 | `SECURITY.md` | Responsible disclosure policy |
 | `CHANGELOG.md` | Starter changelog following Keep a Changelog format |
 
-**How it works:** Pure copy-if-not-exists. `CONTRIBUTING.md` is templated with commands inferred from `StackDetectionResult.summary` (e.g., the detected dev server command is inserted automatically). The PR template conditionally includes an accessibility checklist when frontend tech is in the detected stack.
+**How it works:** Pure copy-if-not-exists. `CONTRIBUTING.md` is templated using `ProjectContext.setup_commands` — the actual detected install, dev, and test commands are inserted directly, making it immediately accurate rather than a placeholder. The PR template conditionally includes an accessibility checklist when any frontend technology is present in `ProjectContext.technologies`.
 
 ---
 
@@ -146,7 +215,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 
 **Goal:** Prevent accidental secret exposure and keep dependencies up to date automatically.
 
-**Integration pattern:** `.gitignore` is merged (append missing entries). `dependabot.yml` and `.env.example` are copy-if-not-exists. No destructive writes.
+**Integration pattern:** `.gitignore` is merged entry-by-entry (same logic as ignore files in Phase 1). `dependabot.yml` and `.env.example` are copy-if-not-exists.
 
 ### Files added
 
@@ -157,7 +226,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 | `.github/dependabot.yml` | Automated dependency update PRs, ecosystem-specific |
 | `SECURITY.md` | (if not added in Phase 4) Basic responsible disclosure policy |
 
-**How it works:** For `.gitignore`, DevPack reads the existing file, checks for a list of critical entries, and appends any that are missing under an `# Added by devpack` block — never removing or reordering existing entries. For `dependabot.yml`, the package ecosystem is inferred from the detected stack (npm, pip, docker) and a template is filled accordingly.
+**How it works:** `.gitignore` entries are checked individually — present entries are untouched, missing ones are appended under an `# Added by devpack` block. For `dependabot.yml`, the package ecosystem (npm, pip, docker) is read from `ProjectContext.technologies` and used to fill the template. Only ecosystems that are actually detected are included.
 
 ---
 
@@ -165,7 +234,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 
 **Goal:** Enforce quality gates on every push and PR, catching issues that local tooling might miss.
 
-**Integration pattern:** New files written to `.github/workflows/`. Never overwrite existing workflow files — check for filename collisions and skip with a message if one exists. Templates use placeholder tokens (`{{PYTHON_VERSION}}`, `{{DEFAULT_BRANCH}}`) filled from the detected stack.
+**Integration pattern:** New files written to `.github/workflows/`. Never overwrite an existing workflow file — check for filename collisions and skip with a message if one exists.
 
 ### Workflows added
 
@@ -176,7 +245,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 | `lighthouse.yml` | Frontend | Accessibility + performance audit via Lighthouse CI |
 | `dependency-audit.yml` | Python / JS | `pip audit` or `npm audit` on schedule |
 
-**How it works:** DevPack maintains stack-specific YAML templates in `starterpack/workflows/`. At write time, placeholder tokens are replaced with values inferred from `StackDetectionResult` (Python version, Node version, test command). Only workflows that don't conflict with existing files are written. Post-install output lists what was written and what manual steps remain (e.g., configuring secrets in GitHub Settings).
+**How it works:** Templates in `starterpack/workflows/` use sentinel tokens that are filled from `ProjectContext` before writing — `{{PYTHON_VERSION}}` and `{{NODE_VERSION}}` from `runtime_versions`, `{{TEST_COMMAND}}` from `setup_commands.test`, `{{DEFAULT_BRANCH}}` from the local git config. Only workflows that don't collide with existing files are written. Post-install output lists what was written and what manual steps remain (e.g., configuring secrets in GitHub Settings).
 
 ---
 
@@ -184,7 +253,7 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 
 **Goal:** Block bad commits at the source — catching secrets, style violations, and type errors before they enter the history.
 
-**Integration pattern:** The most complex integration. Repos often already have `.pre-commit-config.yaml` or a `husky` setup. DevPack checks first: if no config exists, copy the stack-specific template; if one exists, offer to add individual missing hooks rather than replacing the file. Post-install instructions are always printed.
+**Integration pattern:** The most complex integration. Repos often already have `.pre-commit-config.yaml` or a `husky` setup. If no config exists, copy the stack-specific template; if one exists, offer to add individual missing hooks rather than replacing the file. Post-install instructions are always printed.
 
 ### What gets added
 
@@ -209,11 +278,15 @@ These files are only written if they don't already exist — a hand-crafted `CLA
 - `djhtml` — Django template formatting
 - `django-upgrade` — auto-upgrade deprecated patterns
 
-**How it works:** For Python repos, DevPack writes `.pre-commit-config.yaml` from a stack-matched template and prints `pre-commit install`. For Node repos, it generates a `husky` + `lint-staged` config and prints `npm install && npx husky install`. If a config already exists, it diffs the existing hooks against the template and offers to add only the missing ones — never removing anything. The tool cannot run `pre-commit install` itself (it can't touch the developer's global git config), so a clear post-install reminder is always shown.
+**How it works:** Stack selection uses `ProjectContext.technologies`. For Python repos, DevPack writes `.pre-commit-config.yaml` from a stack-matched template and prints `pre-commit install`. For Node repos, it generates a `husky` + `lint-staged` config and prints `npm install && npx husky install`. If a config already exists, it diffs the existing hooks against the template and offers to add only the missing ones — never removing anything.
 
 ---
 
 ## Architectural Implications
+
+### `ProjectContext` replaces `StackDetectionResult` in the `init` path
+
+`StackDetectionResult` continues to exist and is used unchanged by `add-skills`. The `init` command uses `ProjectContext` — a superset that adds `directory_structure`, `setup_commands`, and `runtime_versions`. These two models live in parallel; no migration of existing code is needed.
 
 ### New model: `Pack`
 
@@ -224,21 +297,21 @@ Pack(id, name, description, type, path, tags)
 # type ∈ {agent-skill, config-file, workflow, documentation, git-hook}
 ```
 
-The `prompter.py` groups packs by type in the interactive selection UI, making it clear what category each item belongs to.
+The `init` pipeline presents packs grouped by phase in the interactive selection UI.
 
 ### Writer behaviors by pack type
 
 | Pack type | Writer behavior |
 |---|---|
 | `agent-skill` | `shutil.copytree` (existing behavior) |
-| `config-file` | Copy if not exists, or merge (type-aware: JSON dedupe, append-only for plaintext) |
+| `config-file` | Copy if not exists, or merge (type-aware: JSON dedupe, line-by-line for plaintext) |
 | `workflow` | Copy to `.github/workflows/` only if no file with the same name exists |
 | `documentation` | Copy if not exists |
-| `git-hook` | Write `.pre-commit-config.yaml` or `package.json` changes + print setup reminder |
+| `git-hook` | Write config from template + print setup reminder |
 
-### Template engine
+### Template tokens
 
-Some files need variable substitution (Python version, project name, detected commands). A lightweight approach: Python's `str.replace()` with sentinel tokens (`{{PROJECT_NAME}}`, `{{PYTHON_VERSION}}`). No need for Jinja2 unless templates grow complex.
+Files that need variable substitution use sentinel tokens filled from `ProjectContext` at write time: `{{PYTHON_VERSION}}`, `{{NODE_VERSION}}`, `{{TEST_COMMAND}}`, `{{DEV_COMMAND}}`, `{{PROJECT_NAME}}`. Python's `str.replace()` is sufficient — no need for Jinja2 unless templates grow complex.
 
 ---
 

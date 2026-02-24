@@ -19,6 +19,25 @@ class StackDetectionResult(BaseModel):
     summary: str
 
 
+class SetupCommands(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    install: str | None = None
+    dev:     str | None = None
+    test:    str | None = None
+    build:   str | None = None
+
+
+class ProjectContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    technologies:        list[DetectedTechnology]
+    summary:             str
+    directory_structure: str
+    setup_commands:      SetupCommands
+    runtime_versions:    dict[str, str]
+
+
 @dataclass
 class Skill:
     id: str
