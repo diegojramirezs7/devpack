@@ -1,9 +1,13 @@
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
 from devpack.models import DetectedTechnology, Skill
+
+if TYPE_CHECKING:
+    from devpack.models import IDETarget
 
 
 def load_skills(starterpack_path: Path) -> list[Skill]:
@@ -33,6 +37,47 @@ def load_skills(starterpack_path: Path) -> list[Skill]:
             )
             continue
 
+        metadata = frontmatter.get("metadata") or {}
+        tags = metadata.get("tags") or []
+
+        skills.append(
+            Skill(
+                id=skill_dir.name,
+                name=name,
+                description=description,
+                path=skill_dir,
+                tags=[t.lower() for t in tags],
+            )
+        )
+
+    return skills
+
+
+def load_installed_skills(repo_path: Path, ide: "IDETarget") -> list[Skill]:
+    """Return skills already installed in *repo_path* for *ide*.
+
+    Scans ``<repo_path>/<ide.skill_path>/`` and parses each subdirectory's
+    SKILL.md, using the same logic as :func:`load_skills`.  Directories
+    without a valid SKILL.md are silently skipped.
+    """
+    skills_dir = repo_path / ide.skill_path
+    if not skills_dir.is_dir():
+        return []
+
+    skills = []
+    for skill_dir in sorted(skills_dir.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue
+
+        frontmatter = _parse_frontmatter(skill_md)
+        if not frontmatter:
+            continue
+
+        name = frontmatter.get("name") or skill_dir.name
+        description = frontmatter.get("description") or ""
         metadata = frontmatter.get("metadata") or {}
         tags = metadata.get("tags") or []
 

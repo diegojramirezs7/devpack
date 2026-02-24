@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from devpack.matcher import load_skills, match_skills
-from devpack.models import DetectedTechnology, Skill
+from devpack.matcher import load_installed_skills, load_skills, match_skills
+from devpack.models import CLAUDE_CODE, CURSOR, DetectedTechnology, Skill
 
 STARTERPACK = Path(__file__).parent.parent / "src" / "devpack" / "starterpack"
 
@@ -99,6 +99,50 @@ class TestMatchSkillsWithRealSkills:
     def test_empty_stack_returns_all_skills(self):
         result = match_skills(self.all_skills, [])
         assert len(result) == len(self.all_skills)
+
+
+# --- load_installed_skills ---
+
+def _install_skill(repo: Path, ide, skill_id: str, name: str = "", description: str = "") -> None:
+    skill_dir = repo / ide.skill_path / skill_id
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        f"---\nname: {name or skill_id}\ndescription: {description or 'A skill.'}\n---\n"
+    )
+
+
+class TestLoadInstalledSkills:
+    def test_empty_when_no_ide_dir(self, tmp_path: Path):
+        assert load_installed_skills(tmp_path, CLAUDE_CODE) == []
+
+    def test_returns_installed_skills(self, tmp_path: Path):
+        _install_skill(tmp_path, CLAUDE_CODE, "my-skill", "My Skill", "Does stuff.")
+        skills = load_installed_skills(tmp_path, CLAUDE_CODE)
+        assert len(skills) == 1
+        assert skills[0].id == "my-skill"
+        assert skills[0].name == "My Skill"
+        assert skills[0].description == "Does stuff."
+
+    def test_path_points_to_installed_copy(self, tmp_path: Path):
+        _install_skill(tmp_path, CLAUDE_CODE, "my-skill")
+        skills = load_installed_skills(tmp_path, CLAUDE_CODE)
+        assert skills[0].path == tmp_path / CLAUDE_CODE.skill_path / "my-skill"
+
+    def test_scoped_to_ide(self, tmp_path: Path):
+        _install_skill(tmp_path, CLAUDE_CODE, "skill-a")
+        _install_skill(tmp_path, CURSOR, "skill-b")
+        assert {s.id for s in load_installed_skills(tmp_path, CLAUDE_CODE)} == {"skill-a"}
+        assert {s.id for s in load_installed_skills(tmp_path, CURSOR)} == {"skill-b"}
+
+    def test_skips_dirs_without_skill_md(self, tmp_path: Path):
+        (tmp_path / CLAUDE_CODE.skill_path / "orphan").mkdir(parents=True)
+        assert load_installed_skills(tmp_path, CLAUDE_CODE) == []
+
+    def test_multiple_skills_returned(self, tmp_path: Path):
+        for skill_id in ["alpha", "beta", "gamma"]:
+            _install_skill(tmp_path, CLAUDE_CODE, skill_id)
+        skills = load_installed_skills(tmp_path, CLAUDE_CODE)
+        assert {s.id for s in skills} == {"alpha", "beta", "gamma"}
 
 
 class TestMatchSkillsLogic:

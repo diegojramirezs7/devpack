@@ -15,11 +15,11 @@ from devpack.config import (
     save_to_config_file,
 )
 from devpack.detector import detect_stack, detect_context
-from devpack.matcher import load_skills, match_skills
+from devpack.matcher import load_skills, load_installed_skills, match_skills
 from devpack.prompter import prompt_ide_selection, prompt_skill_selection
 from devpack.guide_writer import write_guide
-from devpack.readme_updater import update_readme
 from devpack.writer import write_skills
+from devpack.ai_config_writer import write_ignore_files, write_agents_md
 
 app = typer.Typer()
 
@@ -33,7 +33,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: Optional[bool] = typer.Option(  # noqa: ARG001
         None,
         "--version",
         "-v",
@@ -208,18 +208,17 @@ def add_skills(
         # 5. Write skills to repo
         written = write_skills(selected, repo_path, ide)
 
-        # 6. Update README
-        update_readme(repo_path, selected, ide)
-
-        # 7. Write local guide
+        # 6. Write local guide (merge with any previously installed skills)
         typer.echo("Generating skill usage guide...")
-        guide_path = write_guide(repo_path, selected, ide, stack)
+        prev = load_installed_skills(repo_path, ide)
+        selected_ids = {s.id for s in selected}
+        all_skills = selected + [s for s in prev if s.id not in selected_ids]
+        guide_path = write_guide(repo_path, all_skills, ide, stack)
 
-        # 8. Summary
+        # 7. Summary
         typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
         for path in written:
             typer.echo(f"  + {path.name}")
-        typer.echo("\nUpdated README with skills documentation.")
         typer.echo(
             f"Wrote local usage guide to {guide_path.relative_to(repo_path)} (gitignored)"
         )
@@ -289,7 +288,7 @@ def init(
         typer.echo()
 
         # 2–4. Skills: match → prompt → write  (identical to add-skills)
-        skills  = load_skills(_STARTERPACK_PATH)
+        skills = load_skills(_STARTERPACK_PATH)
         matched = match_skills(skills, context.technologies)
 
         if not matched:
@@ -303,19 +302,38 @@ def init(
 
         ide = prompt_ide_selection(repo_path)
         written = write_skills(selected, repo_path, ide)
-        update_readme(repo_path, selected, ide)
 
         typer.echo("Generating skill usage guide...")
-        guide_path = write_guide(repo_path, selected, ide, context.technologies)
+        prev = load_installed_skills(repo_path, ide)
+        selected_ids = {s.id for s in selected}
+        all_skills = selected + [s for s in prev if s.id not in selected_ids]
+        guide_path = write_guide(repo_path, all_skills, ide, context.technologies)
+
+        # Phase 1 — AI config files and ignore files
+        ignore_results = write_ignore_files(repo_path, ide)
+        _, agents_action = write_agents_md(repo_path, context, selected)
 
         # Summary
         typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
         for path in written:
             typer.echo(f"  + {path.name}")
-        typer.echo("\nUpdated README with skills documentation.")
         typer.echo(
             f"Wrote local usage guide to {guide_path.relative_to(repo_path)} (gitignored)"
         )
+
+        typer.echo("\nAI config files:")
+        for filename, action in ignore_results:
+            if action == "skipped":
+                typer.echo(f"  ~ {filename} (already complete — skipped)")
+            else:
+                typer.echo(f"  + {filename} ({action})")
+        if agents_action == "created":
+            typer.echo("  + agents.md (created)")
+        else:
+            typer.echo(
+                "  ~ agents.md already exists — skipped\n"
+                "    To refresh the Installed Skills section, edit agents.md manually."
+            )
 
     except (typer.Exit, typer.Abort):
         raise
@@ -328,7 +346,8 @@ def init(
     except PermissionError:
         typer.echo(
             f"\nError: permission denied writing to {repo_path}.\n"
-            "Check that you own that directory.", err=True,
+            "Check that you own that directory.",
+            err=True,
         )
         raise typer.Exit(1)
     except Exception as e:
@@ -337,6 +356,7 @@ def init(
         typer.echo(f"\nError: {e}", err=True)
         typer.echo(
             "\nRun with --debug for full details, or report the issue:\n"
-            "  https://github.com/diegojramirezs7/devpack/issues", err=True,
+            "  https://github.com/diegojramirezs7/devpack/issues",
+            err=True,
         )
         raise typer.Exit(1)
