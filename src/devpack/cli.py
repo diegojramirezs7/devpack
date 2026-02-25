@@ -272,8 +272,14 @@ def init(
         typer.echo("Warning: the target directory appears to be empty.\n")
 
     try:
-        # 1. Single SDK call — gather all context upfront
-        typer.echo("Analyzing your project with Claude...")
+        # 1. IDE selection — upfront, before any API call
+        ide = prompt_ide_selection(repo_path)
+
+        # 2. Write ignore file immediately (fast, no API call needed)
+        ignore_results = write_ignore_files(repo_path, ide)
+
+        # 3. Single SDK call — gather all context
+        typer.echo("\nAnalyzing your project with Claude...")
         context = detect_context(repo_path)
 
         if context.technologies:
@@ -287,7 +293,7 @@ def init(
             typer.echo(f"Test command:  {context.setup_commands.test}")
         typer.echo()
 
-        # 2–4. Skills: match → prompt → write  (identical to add-skills)
+        # 4–5. Skills: match → prompt
         skills = load_skills(_STARTERPACK_PATH)
         matched = match_skills(skills, context.technologies)
 
@@ -300,17 +306,17 @@ def init(
             typer.echo("No skills selected. Nothing to do.")
             raise typer.Exit()
 
-        ide = prompt_ide_selection(repo_path)
+        # 6. Write skills
         written = write_skills(selected, repo_path, ide)
 
+        # 7. Guide (merge with previously installed)
         typer.echo("Generating skill usage guide...")
         prev = load_installed_skills(repo_path, ide)
         selected_ids = {s.id for s in selected}
         all_skills = selected + [s for s in prev if s.id not in selected_ids]
         guide_path = write_guide(repo_path, all_skills, ide, context.technologies)
 
-        # Phase 1 — AI config files and ignore files
-        ignore_results = write_ignore_files(repo_path, ide)
+        # 8. agents.md
         _, agents_action = write_agents_md(repo_path, context, selected)
 
         # Summary
