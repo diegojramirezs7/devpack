@@ -39,30 +39,36 @@ Understand what the component or module does before writing anything. Pay attent
 Edit the actual file. Rules:
 
 **For components:**
+
 - Add a JSDoc block above the component function describing its purpose, where it's used, and anything non-obvious about its behavior.
-- Document the props interface or type with `@param` for each prop — name, type, and a short description. If TypeScript types are already explicit and self-explanatory, you can skip restating the type and focus on the *meaning*.
+- Document the props interface or type with `@param` for each prop — name, type, and a short description. If TypeScript types are already explicit and self-explanatory, you can skip restating the type and focus on the _meaning_.
 - If the component has significant internal state, briefly note the key pieces with inline comments rather than a full JSDoc block — keep it light.
-- Document `useEffect` blocks with a short inline comment explaining *why* the effect exists, not just what it does. Side effects are where bugs hide; a good comment here saves hours.
+- Document `useEffect` blocks with a short inline comment explaining _why_ the effect exists, not just what it does. Side effects are where bugs hide; a good comment here saves hours.
 
 **For custom hooks:**
+
 - JSDoc block describing what the hook does, what it returns, and any important caveats (e.g. "must be used inside a Redux Provider").
 - `@param` for each argument.
 - `@returns` describing the shape of the return value, especially if it's an object with multiple fields.
 
 **For Redux slices / Zustand stores:**
+
 - JSDoc on the store/slice itself explaining what domain state it owns.
 - Comment on each action/reducer explaining what triggers it and what it changes.
 - Document selectors with what they derive and any memoization in play.
 
 **For React Query files:**
+
 - Document each query/mutation hook: what endpoint it hits, what it returns, and any key options (e.g. stale time, enabled conditions).
 
 **General rules:**
-- Don't over-document. If the code is clear, a one-liner is enough. Focus on *why* and *what*, not *how* when the code already shows that.
+
+- Don't over-document. If the code is clear, a one-liner is enough. Focus on _why_ and _what_, not _how_ when the code already shows that.
 - Don't restate TypeScript types in prose when they're already explicit — add meaning, not noise.
 - If something is genuinely confusing or non-standard, say so in the comment. Be honest.
 
 **Example — component:**
+
 ```tsx
 /**
  * Displays a paginated list of user orders with filtering by status.
@@ -73,6 +79,7 @@ const OrderList: React.FC<OrderListProps> = ({ userId, pageSize = 20 }) => {
 ```
 
 **Example — hook:**
+
 ```tsx
 /**
  * Fetches and caches the current user's profile data.
@@ -84,6 +91,7 @@ export function useUserProfile() {
 ```
 
 **Example — useEffect:**
+
 ```tsx
 // Sync selected filters to URL params so the page is shareable
 useEffect(() => {
@@ -104,6 +112,7 @@ Walk the directory tree. Identify the router setup, the pages/routes, the global
 
 **Step 2 — Read the key files.**
 Prioritize:
+
 - Router configuration (where routes are defined)
 - Page-level components (components that map to routes)
 - Store setup: Redux root reducer / Zustand stores / Context providers
@@ -128,11 +137,12 @@ Use this fixed template:
 
 Map each route to its page component and a short description of what it does.
 
-| Path | Component | Description | Auth Required |
-|------|-----------|-------------|---------------|
-| `/` | `HomePage` | Landing page, shows summary dashboard | No |
-| `/login` | `LoginPage` | Email/password login form | No |
-| `/orders/:id` | `OrderDetailPage` | Detail view for a single order | Yes |
+| Path          | Component         | Description                           | Auth Required |
+| ------------- | ----------------- | ------------------------------------- | ------------- |
+| `/`           | `HomePage`        | Landing page, shows summary dashboard | No            |
+| `/login`      | `LoginPage`       | Email/password login form             | No            |
+| `/orders/:id` | `OrderDetailPage` | Detail view for a single order        | Yes           |
+
 [...]
 
 Note any nested routing, layout wrappers, or dynamic route patterns worth explaining.
@@ -157,9 +167,10 @@ Note any nested routing, layout wrappers, or dynamic route patterns worth explai
 - **Key queries & mutations**: Group by domain. For each, note the endpoint and what triggers it.
 
 ### <Domain name (e.g. Orders)>
+
 - `useOrders` — `GET /api/orders` — fetches paginated order list, triggered on OrderListPage mount
 - `useCreateOrder` — `POST /api/orders` — mutation called on checkout form submit
-[...]
+  [...]
 
 - **Error handling**: How API errors are caught and surfaced (global error boundary, per-query callbacks, toast notifications, etc.).
 

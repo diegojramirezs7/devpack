@@ -1,5 +1,5 @@
 ---
-name: init-system-design
+name: create-system-design
 description: Create a high-level system design for a new project. Use this skill whenever the user wants to plan how a system should be structured before implementation — including architecture, data model, API design, frontend structure, and key technical decisions. Trigger on phrases like "system design", "architect this", "plan the system", "how should I structure this", "design the backend/frontend", "technical design", "project architecture", or any request to map out how components of a new app or system fit together. Also use when the user has a feature spec or product description and wants to turn it into a buildable technical plan. Even if the user just says "let's build X" or "let's make Y", if no design exists yet, trigger this skill to establish the technical foundation first.
 ---
 

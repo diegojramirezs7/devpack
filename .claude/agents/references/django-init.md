@@ -8,18 +8,28 @@ This document contains all templates and configurations for initializing a produ
 project-name/
 ├── PROJECT_NAME/                # Django project directory
 │   ├── __init__.py
-│   ├── settings.py              # Django settings
-│   ├── urls.py                  # URL configuration
+│   ├── urls.py                  # Root URL configuration
 │   ├── asgi.py
 │   └── wsgi.py
-├── APP_NAME/                    # Django app
+├── config/                      # Django settings package
+│   ├── __init__.py
+│   ├── base.py                  # Shared settings
+│   ├── local.py                 # Development settings
+│   └── prod.py                  # Production settings
+├── api/                         # API layer
+│   ├── __init__.py
+│   ├── urls.py                  # Aggregates all app URLs
+│   └── APP_NAME/                # App-specific API files
+│       ├── __init__.py
+│       ├── urls.py              # App URL patterns
+│       ├── views.py             # API views
+│       └── serializers.py      # DRF serializers
+├── APP_NAME/                    # Django app (models, admin, migrations)
 │   ├── __init__.py
 │   ├── admin.py
 │   ├── apps.py
 │   ├── models.py
 │   ├── tests.py
-│   ├── urls.py                  # App URLs
-│   ├── views.py                 # API views
 │   └── migrations/
 │       └── __init__.py
 ├── static/                      # Static files (collectstatic target)
@@ -70,7 +80,7 @@ select = ["E", "F", "I", "N", "W", "DJ"]
 ignore = []
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "PROJECT_NAME.settings"
+DJANGO_SETTINGS_MODULE = "config.local"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 ```
 
@@ -84,10 +94,14 @@ python_files = ["tests.py", "test_*.py", "*_tests.py"]
 import os
 import sys
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'PROJECT_NAME.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.local')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -103,19 +117,20 @@ if __name__ == '__main__':
     main()
 ```
 
-### PROJECT_NAME/settings.py
+### config/__init__.py
 
 ```python
-"""Django settings for PROJECT_NAME project."""
+```
+
+### config/base.py
+
+```python
+"""Base Django settings for PROJECT_NAME project."""
 
 import os
 from pathlib import Path
 
 import dj_database_url
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -125,9 +140,6 @@ SECRET_KEY = os.getenv(
     'SECRET_KEY',
     'django-insecure-CHANGE-THIS-IN-PRODUCTION'
 )
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -279,11 +291,35 @@ LOGGING = {
         },
         'APP_NAME': {
             'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
+            'level': 'INFO',
             'propagate': False,
         },
     },
 }
+```
+
+### config/local.py
+
+```python
+"""Local development settings."""
+
+from .base import *  # noqa: F401, F403
+
+DEBUG = True
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+LOGGING['loggers']['APP_NAME']['level'] = 'DEBUG'  # noqa: F405
+```
+
+### config/prod.py
+
+```python
+"""Production settings."""
+
+from .base import *  # noqa: F401, F403
+
+DEBUG = False
 ```
 
 ### PROJECT_NAME/urls.py
@@ -296,7 +332,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('APP_NAME.urls')),
+    path('api/', include('api.urls')),
 ]
 ```
 
@@ -314,8 +350,10 @@ urlpatterns = [
 import os
 
 from django.core.asgi import get_asgi_application
+from dotenv import load_dotenv
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'PROJECT_NAME.settings')
+load_dotenv()
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.local')
 
 application = get_asgi_application()
 ```
@@ -328,31 +366,40 @@ application = get_asgi_application()
 import os
 
 from django.core.wsgi import get_wsgi_application
+from dotenv import load_dotenv
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'PROJECT_NAME.settings')
+load_dotenv()
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.local')
 
 application = get_wsgi_application()
 ```
 
-### APP_NAME/apps.py
+### api/__init__.py
 
 ```python
-"""App configuration for APP_NAME."""
-
-from django.apps import AppConfig
-
-
-class APP_NAME_CAMELConfig(AppConfig):
-    """Configuration for APP_NAME app."""
-    
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'APP_NAME'
 ```
 
-### APP_NAME/urls.py
+### api/urls.py
 
 ```python
-"""URL configuration for APP_NAME app."""
+"""API URL aggregator for PROJECT_NAME."""
+
+from django.urls import path, include
+
+urlpatterns = [
+    path('APP_NAME/', include('api.APP_NAME.urls')),
+]
+```
+
+### api/APP_NAME/__init__.py
+
+```python
+```
+
+### api/APP_NAME/urls.py
+
+```python
+"""URL configuration for APP_NAME API."""
 
 from django.urls import path
 from . import views
@@ -364,7 +411,7 @@ urlpatterns = [
 ]
 ```
 
-### APP_NAME/views.py
+### api/APP_NAME/views.py
 
 ```python
 """API views for APP_NAME."""
@@ -381,7 +428,7 @@ logger = logging.getLogger(__name__)
 
 class HealthCheckThrottle(AnonRateThrottle):
     """Custom throttle class that allows unlimited health check requests."""
-    
+
     def allow_request(self, request, view):
         """Always allow health check requests."""
         return True
@@ -391,9 +438,9 @@ class HealthCheckThrottle(AnonRateThrottle):
 @throttle_classes([HealthCheckThrottle])
 def health_check(request):
     """Health check endpoint.
-    
+
     Verifies database connectivity and returns service status.
-    
+
     Returns:
         Response: JSON with health status
     """
@@ -401,7 +448,7 @@ def health_check(request):
         # Check database connection
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        
+
         return Response({
             'status': 'healthy',
             'database': 'connected',
@@ -413,6 +460,31 @@ def health_check(request):
             'database': 'disconnected',
             'error': str(e),
         }, status=503)
+```
+
+### api/APP_NAME/serializers.py
+
+```python
+"""Serializers for APP_NAME."""
+
+from rest_framework import serializers
+
+# Define your serializers here
+```
+
+### APP_NAME/apps.py
+
+```python
+"""App configuration for APP_NAME."""
+
+from django.apps import AppConfig
+
+
+class APP_NAME_CAMELConfig(AppConfig):
+    """Configuration for APP_NAME app."""
+
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'APP_NAME'
 ```
 
 ### APP_NAME/models.py
@@ -469,8 +541,8 @@ from django.test import TestCase
 
 ```env
 # Django Core
+DJANGO_SETTINGS_MODULE=config.local
 SECRET_KEY=your-secret-key-here-CHANGE-IN-PRODUCTION
-DEBUG=true
 ALLOWED_HOSTS=localhost,127.0.0.1
 
 # Database
@@ -643,7 +715,7 @@ python manage.py createsuperuser
 ### 6. Run Application
 
 ```bash
-# Development server
+# Development server (DJANGO_SETTINGS_MODULE loaded from .env)
 python manage.py runserver
 ```
 
@@ -657,14 +729,21 @@ The API will be available at:
 ```
 PROJECT_NAME/
 ├── PROJECT_NAME/            # Django project configuration
-│   ├── settings.py          # Settings with env var support
 │   ├── urls.py              # Root URL configuration
 │   ├── wsgi.py              # WSGI application
 │   └── asgi.py              # ASGI application
-├── APP_NAME/                # Main Django app
-│   ├── views.py             # API views
+├── config/                  # Settings package
+│   ├── base.py              # Shared settings
+│   ├── local.py             # Development settings
+│   └── prod.py              # Production settings
+├── api/                     # API layer
+│   ├── urls.py              # Aggregates all app URLs
+│   └── APP_NAME/            # App-specific API files
+│       ├── urls.py          # App URL patterns
+│       ├── views.py         # API views
+│       └── serializers.py  # DRF serializers
+├── APP_NAME/                # Main Django app (models, admin, migrations)
 │   ├── models.py            # Database models
-│   ├── urls.py              # App URL patterns
 │   ├── admin.py             # Admin configuration
 │   └── migrations/          # Database migrations
 ├── static/                  # Static files (collectstatic)
@@ -681,7 +760,7 @@ PROJECT_NAME/
 
 ### Health Check
 ```bash
-GET /api/health/
+GET /api/APP_NAME/health/
 ```
 
 Returns database connectivity status. Exempt from rate limiting.
@@ -694,6 +773,30 @@ http://localhost:8000/admin/
 Django admin interface for managing models.
 
 ## Development
+
+### Adding a New App
+
+1. Create the app directory with `models.py`, `admin.py`, `apps.py`, `migrations/`
+2. Create `api/NEW_APP/` with `urls.py`, `views.py`, `serializers.py`
+3. Register the app URL in `api/urls.py`:
+   ```python
+   path('new_app/', include('api.new_app.urls')),
+   ```
+4. Add the app to `INSTALLED_APPS` in `config/base.py`
+
+### Settings Environments
+
+The active settings module is set via `DJANGO_SETTINGS_MODULE` in your `.env` file:
+
+```env
+# Development (default)
+DJANGO_SETTINGS_MODULE=config.local
+
+# Production
+DJANGO_SETTINGS_MODULE=config.prod
+```
+
+`manage.py`, `asgi.py`, and `wsgi.py` all call `load_dotenv()` before Django initializes, so the value is picked up automatically. The fallback is always `config.local`.
 
 ### Adding Dependencies
 
@@ -770,8 +873,8 @@ Key environment variables in `.env`:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `DJANGO_SETTINGS_MODULE` | Active settings module | `config.local` |
 | `SECRET_KEY` | Django secret key | *CHANGE IN PRODUCTION* |
-| `DEBUG` | Debug mode | `true` |
 | `ALLOWED_HOSTS` | Comma-separated allowed hosts | `localhost,127.0.0.1` |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/PROJECT_NAME` |
 | `ALLOWED_ORIGINS` | CORS allowed origins (comma-separated) | `*` |
@@ -783,8 +886,8 @@ Key environment variables in `.env`:
 
 Before deploying to production:
 
-1. **Generate a strong `SECRET_KEY`** and never commit it
-2. **Set `DEBUG=false`** in environment variables
+1. **Set `DJANGO_SETTINGS_MODULE=config.prod`** in your environment
+2. **Generate a strong `SECRET_KEY`** and never commit it
 3. **Configure `ALLOWED_HOSTS`** with your domain names
 4. **Configure `ALLOWED_ORIGINS`** with specific domains (not `*`)
 5. **Use strong database credentials** (not default postgres/postgres)
@@ -802,7 +905,7 @@ Before deploying to production:
 # Install gunicorn
 uv add gunicorn
 
-# Run with gunicorn
+# Run with gunicorn (DJANGO_SETTINGS_MODULE=config.prod must be set in .env or the server environment)
 gunicorn PROJECT_NAME.wsgi:application --bind 0.0.0.0:8000 --workers 4
 ```
 
@@ -823,17 +926,21 @@ When creating files, replace these placeholders:
 ### Directory Creation
 
 Create these empty directories:
+- `config/` (with `__init__.py`, `base.py`, `local.py`, `prod.py`)
+- `api/` (with `__init__.py`, `urls.py`)
+- `api/APP_NAME/` (with `__init__.py`, `urls.py`, `views.py`, `serializers.py`)
 - `APP_NAME/migrations/` (with `__init__.py`)
 - `static/` (with `.gitkeep` to track in git)
 - `media/` (with `.gitkeep` to track in git)
 
 ### Order of Operations
 
-1. Run `django-admin startproject PROJECT_NAME .` in temp location if you want Django's file structure, OR
-2. Create all files manually based on templates above
-3. Create the app directory structure manually
-4. Create configuration files
-5. Create README.md
+1. Create all files manually based on templates above (recommended for full control)
+2. Create the `config/` settings package
+3. Create the `api/` layer and app-specific subdirectories
+4. Create app directories (models, admin, migrations only — no views/urls in app dir)
+5. Create configuration files
+6. Create README.md
 
 **Recommended**: Create files manually from templates to have full control over contents.
 
@@ -845,13 +952,15 @@ Remind the user to:
 3. Install dependencies with `uv sync`
 4. Start Docker Compose
 5. Copy .env.example to .env
-6. Generate a new SECRET_KEY for .env
-7. Run migrations: `python manage.py migrate`
-8. Create superuser (optional)
-9. Run the development server
+6. Set `DJANGO_SETTINGS_MODULE` in .env (defaults to `config.local`)
+7. Generate a new SECRET_KEY for .env
+8. Run migrations: `python manage.py migrate`
+9. Create superuser (optional)
+10. Run the development server
 
 ### Important Django-Specific Notes
 
+- **DJANGO_SETTINGS_MODULE**: Set in `.env` (`config.local` for dev, `config.prod` for production); `manage.py`, `asgi.py`, and `wsgi.py` call `load_dotenv()` before Django initializes so the value is picked up automatically — no need to prefix commands. Fallback is `config.local`.
 - **SECRET_KEY**: Default is insecure, remind user to generate new one
 - **ALLOWED_HOSTS**: Must be configured for production
 - **Static files**: Need to run `collectstatic` for production
@@ -859,3 +968,4 @@ Remind the user to:
 - **CORS order**: `corsheaders.middleware.CorsMiddleware` must be before `CommonMiddleware`
 - **Rate limiting**: Using DRF's built-in throttling (simpler than django-ratelimit for API)
 - **dj-database-url**: Handles DATABASE_URL parsing with connection pooling settings
+- **API structure**: Views and URLs live in `api/APP_NAME/`, not in the app directory itself; the app directory holds only models, admin, and migrations
