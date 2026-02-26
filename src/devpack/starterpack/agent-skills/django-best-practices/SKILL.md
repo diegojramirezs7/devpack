@@ -1,17 +1,17 @@
 ---
 name: django-best-practices
-description: Django application best practices covering ORM performance, security, project structure, caching, testing, and deployment. This skill should be used when writing, reviewing, or refactoring Django code to ensure correct patterns and optimal performance. Triggers on tasks involving Django models, views, serializers, settings, migrations, or deployment configuration.
+description: Django application best practices covering ORM performance, security, project structure, caching, testing, deployment, and documentation. This skill should be used when writing, reviewing, refactoring, or documenting Django code to ensure correct patterns and optimal performance. Triggers on tasks involving Django models, views, serializers, settings, migrations, deployment configuration, or documentation generation (docstrings, specs, project overviews).
 license: MIT
 metadata:
   author: community
-  version: "1.0.0"
+  version: "1.1.0"
   tags:
     - django
 ---
 
 # Django Best Practices
 
-Comprehensive best practices guide for Django applications. Contains 45+ rules across 9 categories, prioritized by impact to guide automated refactoring, code review, and code generation.
+Comprehensive best practices guide for Django applications. Contains 45+ rules across 10 categories, prioritized by impact to guide automated refactoring, code review, code generation, and documentation.
 
 ## When to Apply
 
@@ -23,6 +23,8 @@ Reference these guidelines when:
 - Configuring Django settings for production deployment
 - Setting up testing infrastructure
 - Working with Celery or async tasks
+- Documenting Django components (models, views, serializers, settings) with docstrings
+- Generating project-level specs or architectural overviews
 
 ## Rule Categories by Priority
 
@@ -37,6 +39,7 @@ Reference these guidelines when:
 | 7        | Async & Background Tasks      | HIGH     | `async-`     |
 | 8        | Configuration & Deployment    | CRITICAL | `deploy-`    |
 | 9        | Development Tooling & Quality | MEDIUM   | `tooling-`   |
+| 10       | Documentation                 | HIGH     | `docs-`      |
 
 ## Quick Reference
 
@@ -118,6 +121,10 @@ Reference these guidelines when:
 - `tooling-migrations` - Use migrations responsibly
 - `tooling-ci` - Use continuous integration
 
+### 10. Documentation (MEDIUM)
+
+- `docs-documentation` - Add Google-style docstrings and generate project specs
+
 ## How to Use
 
 Read individual rule files for detailed explanations and code examples:
@@ -125,6 +132,7 @@ Read individual rule files for detailed explanations and code examples:
 ```
 rules/db-select-related.md
 rules/security-input-validation.md
+rules/docs-documentation.md
 ```
 
 Each rule file contains:

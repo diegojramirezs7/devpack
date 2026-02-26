@@ -1,10 +1,10 @@
 ---
 name: react-best-practices
-description: React and Next.js performance optimization guidelines from Vercel Engineering. This skill should be used when writing, reviewing, or refactoring React/Next.js code to ensure optimal performance patterns. Triggers on tasks involving React components, Next.js pages, data fetching, bundle optimization, or performance improvements.
+description: React and Next.js performance optimization and documentation guidelines. This skill should be used when writing, reviewing, refactoring, or documenting React/Next.js code to ensure optimal performance patterns and clear documentation. Triggers on tasks involving React components, Next.js pages, data fetching, bundle optimization, performance improvements, or documentation generation (JSDoc, specs, project overviews).
 license: MIT
 metadata:
   author: vercel
-  version: "1.0.0"
+  version: "1.1.0"
   tags:
     - react
     - nextjs
@@ -12,7 +12,7 @@ metadata:
 
 # Vercel React Best Practices
 
-Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 57 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
+Comprehensive performance optimization and documentation guide for React and Next.js applications, maintained by Vercel. Contains 57+ rules across 9 categories, prioritized by impact to guide automated refactoring, code generation, and documentation.
 
 ## When to Apply
 
@@ -23,6 +23,8 @@ Reference these guidelines when:
 - Reviewing code for performance issues
 - Refactoring existing React/Next.js code
 - Optimizing bundle size or load times
+- Documenting React components, hooks, stores, or query files with JSDoc
+- Generating project-level specs or architectural overviews
 
 ## Rule Categories by Priority
 
@@ -36,6 +38,7 @@ Reference these guidelines when:
 | 6        | Rendering Performance     | MEDIUM      | `rendering-` |
 | 7        | JavaScript Performance    | LOW-MEDIUM  | `js-`        |
 | 8        | Advanced Patterns         | LOW         | `advanced-`  |
+| 9        | Documentation             | HIGH        | `docs-`      |
 
 ## Quick Reference
 
@@ -120,6 +123,10 @@ Reference these guidelines when:
 - `advanced-init-once` - Initialize app once per app load
 - `advanced-use-latest` - useLatest for stable callback refs
 
+### 9. Documentation (HIGH)
+
+- `docs-documentation` - Add JSDoc comments and generate project specs
+
 ## How to Use
 
 Read individual rule files for detailed explanations and code examples:
@@ -127,6 +134,7 @@ Read individual rule files for detailed explanations and code examples:
 ```
 rules/async-parallel.md
 rules/bundle-barrel-imports.md
+rules/docs-documentation.md
 ```
 
 Each rule file contains:
