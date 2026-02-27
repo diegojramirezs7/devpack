@@ -16,6 +16,7 @@ KNOWN_TECHNOLOGY_IDS: list[str] = [
     "nextjs",
     "vite",
     "angular",
+    "sequelize",
     # Ruby
     "rails",
     # Databases

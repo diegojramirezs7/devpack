@@ -8,6 +8,9 @@ description: >
   tasks involving Sequelize models, database queries, connection setup, eager loading, transactions,
   migrations, or performance optimization. Do NOT use for MongoDB/Mongoose, Prisma, TypeORM,
   Drizzle, or other non-Sequelize ORMs.
+metadata:
+  tags:
+    - sequelize
 ---
 
 # Sequelize Best Practices
@@ -31,16 +34,16 @@ Reference these guidelines when:
 
 ## Rule Categories by Priority
 
-| Priority | Category | Impact | Prefix |
-| --- | --- | --- | --- |
-| 1 | Eliminating N+1 & Query Waterfalls | CRITICAL | `query-` |
-| 2 | Security & Input Safety | CRITICAL | `security-` |
-| 3 | Model Design & Definitions | HIGH | `model-` |
-| 4 | Transactions & Data Integrity | HIGH | `transaction-` |
-| 5 | Migrations & Schema Management | MEDIUM-HIGH | `migration-` |
-| 6 | Connection & Pool Management | MEDIUM | `connection-` |
-| 7 | Association Patterns | MEDIUM | `association-` |
-| 8 | Code Organization & Architecture | LOW-MEDIUM | `architecture-` |
+| Priority | Category                           | Impact      | Prefix          |
+| -------- | ---------------------------------- | ----------- | --------------- |
+| 1        | Eliminating N+1 & Query Waterfalls | CRITICAL    | `query-`        |
+| 2        | Security & Input Safety            | CRITICAL    | `security-`     |
+| 3        | Model Design & Definitions         | HIGH        | `model-`        |
+| 4        | Transactions & Data Integrity      | HIGH        | `transaction-`  |
+| 5        | Migrations & Schema Management     | MEDIUM-HIGH | `migration-`    |
+| 6        | Connection & Pool Management       | MEDIUM      | `connection-`   |
+| 7        | Association Patterns               | MEDIUM      | `association-`  |
+| 8        | Code Organization & Architecture   | LOW-MEDIUM  | `architecture-` |
 
 ## Quick Reference
 

@@ -1,6 +1,9 @@
 ---
 name: refine-feature
 description: Transform rough, unstructured feature ideas into well-defined, implementation-ready features with clear scope and acceptance criteria. Use when the user asks to refine, clarify, break down, or scope feature ideas for their applications or projects. Common triggers include "help me refine this feature", "break down this idea", "scope this feature", or when the user provides unstructured notes about what they want to build.
+metadata:
+  tags:
+    - general
 ---
 
 # Feature Refiner

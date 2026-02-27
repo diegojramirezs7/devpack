@@ -1,6 +1,9 @@
 ---
 name: fastapi-best-practices
 description: FastAPI performance, security, and code quality guidelines for production Python APIs. This skill should be used when writing, reviewing, or refactoring FastAPI code to ensure optimal patterns. Triggers on tasks involving FastAPI routes, Pydantic models, dependency injection, async handlers, database integration, error handling, testing, or API design. Use this skill whenever the user mentions FastAPI, Starlette, Pydantic in an API context, or Python REST/HTTP API development.
+metadata:
+  tags:
+    - fastapi
 ---
 
 # FastAPI Best Practices

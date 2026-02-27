@@ -44,7 +44,9 @@ def api_key_source() -> str | None:
         return "environment variable"
 
     def _has_key(path: Path) -> bool:
-        return bool(re.search(r"^\s*ANTHROPIC_API_KEY\s*=", path.read_text(), re.MULTILINE))
+        return bool(
+            re.search(r"^\s*ANTHROPIC_API_KEY\s*=", path.read_text(), re.MULTILINE)
+        )
 
     local_env = Path.cwd() / ".env"
     if local_env.exists() and _has_key(local_env):
