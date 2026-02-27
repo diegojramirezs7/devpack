@@ -1,6 +1,6 @@
 # Express.js Best Practices — Full Rules
 
-Detailed explanations and code examples for all 38 rules. Organized by category and priority.
+Detailed explanations and code examples for all 39 rules. Organized by category and priority.
 
 Sources: [Express.js Performance Guide](https://expressjs.com/en/advanced/best-practice-performance.html), [Express.js Security Guide](https://expressjs.com/en/advanced/best-practice-security.html), [Sematext Express.js Best Practices](https://sematext.com/blog/expressjs-best-practices/).
 
@@ -1319,3 +1319,208 @@ app.get('/data', async (req, res) => {
   res.json(data);
 });
 ```
+
+---
+
+## 8. Documentation (HIGH)
+
+---
+
+### `docs-documentation`
+
+Add JSDoc comments to Express source files and generate project specs.
+
+**Impact: HIGH**
+**Tags:** documentation, jsdoc, spec, onboarding, maintainability
+
+Well-documented Express code reduces onboarding time and prevents knowledge silos. Documentation should explain _why_ and _what_, not just _how_. This covers both inline JSDoc for individual modules and project-level spec documents.
+
+---
+
+#### Component Documentation (Inline JSDoc)
+
+**Applies to:** route files, controllers, services, middleware, models, utilities, and configuration modules.
+
+**Process:**
+
+1. **Read the file carefully** before writing documentation. Understand the request flow, middleware dependencies, error paths, and any non-obvious behavior.
+2. **Add JSDoc comments** directly to the source file:
+   - **Route files / Controllers**: Document the HTTP method, path, expected request shape (params, query, body), response shape, and authentication requirements.
+   - **Services**: Document the business operation, arguments, return value, and thrown errors.
+   - **Middleware**: Document what the middleware does, what it adds to `req`/`res`, and when it calls `next()` vs. responds directly.
+   - **Error classes**: Document the status code, error code, and when to use each class.
+   - **Config modules**: Add inline comments explaining non-obvious settings, environment variable defaults, and why certain values are set.
+3. **Don't over-document.** If the code is clear, a one-liner is enough. Focus on _why_ and _what_.
+
+**Incorrect (no documentation):**
+
+```javascript
+const express = require('express');
+const router = express.Router();
+const userService = require('../services/userService');
+
+router.get('/:id', authenticate, async (req, res) => {
+  const user = await userService.findById(req.params.id);
+  if (!user) throw new NotFoundError('User');
+  res.json(user);
+});
+
+router.post('/', authenticate, validate(createUserSchema), async (req, res) => {
+  const user = await userService.create(req.body);
+  res.status(201).json(user);
+});
+
+module.exports = router;
+```
+
+**Correct:**
+
+```javascript
+/**
+ * User routes.
+ * All routes require authentication via the `authenticate` middleware.
+ * @module routes/users
+ */
+const express = require('express');
+const router = express.Router();
+const userService = require('../services/userService');
+
+/**
+ * Get a user by ID.
+ * @route GET /api/users/:id
+ * @param {string} req.params.id - User UUID
+ * @returns {Object} 200 - The user object
+ * @throws {NotFoundError} 404 - If no user exists with the given ID
+ */
+router.get('/:id', authenticate, async (req, res) => {
+  const user = await userService.findById(req.params.id);
+  if (!user) throw new NotFoundError('User');
+  res.json(user);
+});
+
+/**
+ * Create a new user. Body is validated against `createUserSchema`.
+ * @route POST /api/users
+ * @param {Object} req.body - Must match createUserSchema (name, email, age?)
+ * @returns {Object} 201 - The created user object
+ */
+router.post('/', authenticate, validate(createUserSchema), async (req, res) => {
+  const user = await userService.create(req.body);
+  res.status(201).json(user);
+});
+
+module.exports = router;
+```
+
+**Middleware example:**
+
+```javascript
+/**
+ * Validates the request body against the given Zod schema.
+ * On success, replaces req.body with the parsed (and coerced) value.
+ * On failure, forwards a ValidationError to the error handler.
+ *
+ * @param {import('zod').ZodSchema} schema - The Zod schema to validate against
+ * @returns {import('express').RequestHandler}
+ */
+function validate(schema) {
+  return (req, res, next) => {
+    try {
+      req.body = schema.parse(req.body);
+      next();
+    } catch (err) {
+      next(new ValidationError(err.errors));
+    }
+  };
+}
+```
+
+---
+
+#### App Spec Documentation (Project-Level)
+
+**When to use:** When a project-level overview, spec, or architectural summary is needed.
+
+**Process:**
+
+1. **Explore the project structure.** Identify route files, middleware, services, models, config files, and infrastructure files (`Dockerfile`, `.env.example`, `package.json`).
+2. **Read key files** (prioritize in this order):
+   - Route definitions and app.js (to map the middleware chain and endpoints)
+   - Service layer (to understand business logic)
+   - Middleware files (to understand cross-cutting concerns)
+   - Config and environment setup
+   - `package.json` for major dependencies
+3. **Write `SPEC.md`** in the project root using this template:
+
+```markdown
+# <Project Name> — App Spec
+
+> One-paragraph summary of what this application does and who it's for.
+
+---
+
+## API Endpoints
+
+Group endpoints by router/resource. For each endpoint:
+
+| Method | Path             | Auth | Description                      |
+| ------ | ---------------- | ---- | -------------------------------- |
+| GET    | /api/users       | Yes  | Returns paginated list of users  |
+| POST   | /api/users       | Yes  | Creates a new user               |
+| GET    | /health          | No   | Health check for load balancers  |
+
+Note any non-standard patterns (file uploads, streaming, WebSocket upgrades).
+
+---
+
+## Middleware Chain
+
+List the middleware in order and what each does:
+1. `helmet()` — Security headers
+2. `cors(options)` — CORS with allowlisted origins
+3. `express.json()` — Body parsing (10kb limit)
+4. `requestId()` — Assigns correlation ID
+5. `authenticate` — JWT verification (scoped to /api)
+6. Routes
+7. 404 catch-all
+8. Centralized error handler
+
+---
+
+## Service Layer
+
+- **userService**: User CRUD, password hashing, profile updates.
+- **orderService**: Order lifecycle (create, confirm, ship, cancel).
+[...]
+
+---
+
+## Auth & Security
+
+- **Authentication method**: (JWT, session, API key, etc.)
+- **Where auth is enforced**: (global middleware, scoped router, per-route)
+- **Rate limiting**: Which endpoints, what limits.
+
+---
+
+## Configuration & Environment
+
+- **Environment variables**: List all env vars the app depends on.
+- **Key dependencies**: Notable packages and why they're used.
+- **Database**: What DB, ORM/query builder, connection pooling setup.
+
+---
+
+## Notes for Developers
+
+Gotchas, known tech debt, non-standard patterns, important conventions.
+```
+
+---
+
+#### General Principles
+
+- **Be precise, not exhaustive.** Make the codebase understandable to someone new without transcribing code into prose.
+- **Write for the next developer.** What does someone intelligent but unfamiliar with this project need to be productive quickly?
+- **When in doubt about intent, ask.** Don't guess and document incorrectly.
+- **Flag surprises.** Middleware with side effects, routes that bypass the error handler, config that looks wrong — mention it in the Notes section.

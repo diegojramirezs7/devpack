@@ -1,17 +1,17 @@
 ---
 name: express-best-practices
-description: Express.js performance, security, and reliability best practices for production applications. This skill should be used when writing, reviewing, or refactoring Express.js code to ensure optimal patterns. Triggers on tasks involving Express routes, middleware, error handling, API design, security hardening, or performance optimization.
+description: Express.js performance, security, reliability, and documentation best practices for production applications. This skill should be used when writing, reviewing, refactoring, or documenting Express.js code to ensure optimal patterns. Triggers on tasks involving Express routes, middleware, error handling, API design, security hardening, performance optimization, or documentation generation (JSDoc, specs, project overviews).
 license: MIT
 metadata:
   author: community
-  version: "1.0.0"
+  version: "1.1.0"
   tags:
     - express
 ---
 
 # Express.js Best Practices
 
-Comprehensive best practices guide for Express.js applications in production. Contains 38 rules across 7 categories, prioritized by impact to guide automated code review, refactoring, and generation.
+Comprehensive best practices guide for Express.js applications in production. Contains 39 rules across 8 categories, prioritized by impact to guide automated code review, refactoring, generation, and documentation.
 
 ## When to Apply
 
@@ -23,6 +23,8 @@ Reference these guidelines when:
 - Setting up error handling, logging, or input validation
 - Configuring Express.js for production deployment
 - Designing middleware chains or application structure
+- Documenting Express.js routes, controllers, services, or middleware with JSDoc
+- Generating project-level specs or architectural overviews
 
 ## Rule Categories by Priority
 
@@ -35,6 +37,7 @@ Reference these guidelines when:
 | 5        | Logging & Monitoring  | MEDIUM-HIGH   | `logging-`    |
 | 6        | Project Structure     | MEDIUM        | `structure-`  |
 | 7        | Production Deployment | HIGH-CRITICAL | `deploy-`     |
+| 8        | Documentation         | HIGH          | `docs-`       |
 
 ## Quick Reference
 
@@ -96,6 +99,10 @@ Reference these guidelines when:
 - `deploy-static-files` — Serve static files via Nginx/CDN; set long-lived cache headers
 - `deploy-timeouts` — Set keepAliveTimeout and headersTimeout to prevent hanging connections
 - `deploy-express-5` — Use Express 5 for automatic async error propagation when possible
+
+### 8. Documentation (HIGH)
+
+- `docs-documentation` — Add JSDoc comments and generate project specs
 
 ## How to Use
 
