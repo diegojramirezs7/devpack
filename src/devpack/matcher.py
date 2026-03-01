@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
-from devpack.models import DetectedTechnology, Skill
+from devpack.models import Agent, DetectedTechnology, Skill
 
 if TYPE_CHECKING:
     from devpack.models import IDETarget
@@ -94,6 +94,57 @@ def load_installed_skills(repo_path: Path, ide: "IDETarget") -> list[Skill]:
     return skills
 
 
+def load_agents(starterpack_path: Path) -> list[Agent]:
+    """Scan starterpack_path/agents/ and return all valid agents."""
+    agents_dir = starterpack_path / "agents"
+    if not agents_dir.is_dir():
+        return []
+
+    agents = []
+    for agent_file in sorted(agents_dir.iterdir()):
+        if not agent_file.is_file() or agent_file.suffix != ".md":
+            continue
+
+        frontmatter = _parse_frontmatter(agent_file)
+        if not frontmatter:
+            warnings.warn(f"Skipping {agent_file.name}: missing or invalid frontmatter")
+            continue
+
+        name = frontmatter.get("name")
+        description = frontmatter.get("description")
+        if not name or not description:
+            warnings.warn(
+                f"Skipping {agent_file.name}: frontmatter missing 'name' or 'description'"
+            )
+            continue
+
+        metadata = frontmatter.get("metadata") or {}
+        tags = metadata.get("tags") or []
+
+        agents.append(
+            Agent(
+                id=agent_file.stem,
+                name=name,
+                description=description,
+                path=agent_file,
+                tags=[t.lower() for t in tags],
+            )
+        )
+
+    return agents
+
+
+def match_agents(agents: list[Agent], stack: list[DetectedTechnology]) -> list[Agent]:
+    """Return agents relevant to the detected stack."""
+    if not stack:
+        return agents
+
+    detected_ids = {t.id.lower() for t in stack}
+    has_frontend = any(t.is_frontend for t in stack)
+
+    return [a for a in agents if _is_relevant(a, detected_ids, has_frontend)]
+
+
 def match_skills(skills: list[Skill], stack: list[DetectedTechnology]) -> list[Skill]:
     """Return skills relevant to the detected stack."""
     if not stack:
@@ -130,7 +181,7 @@ def _parse_frontmatter(skill_md: Path) -> dict | None:
         return None
 
 
-def _is_relevant(skill: Skill, detected_ids: set[str], has_frontend: bool) -> bool:
+def _is_relevant(skill: "Skill | Agent", detected_ids: set[str], has_frontend: bool) -> bool:
     if "general" in skill.tags:
         return True
     if has_frontend and "frontend" in skill.tags:

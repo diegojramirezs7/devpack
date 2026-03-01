@@ -48,6 +48,15 @@ class Skill:
 
 
 @dataclass
+class Agent:
+    id: str           # filename stem, e.g. "codebase-onboarder"
+    name: str         # from frontmatter `name`
+    description: str  # from frontmatter `description`
+    path: Path        # path to the .md file in starterpack/agents/
+    tags: list[str] = field(default_factory=list)
+
+
+@dataclass
 class IDETarget:
     id: str
     name: str

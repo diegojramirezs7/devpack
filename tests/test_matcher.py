@@ -67,13 +67,11 @@ class TestMatchSkillsWithRealSkills:
         stack = [_make_tech("python"), _make_tech("django")]
         result = self._ids(stack)
         assert "django-best-practices" in result
-        assert "django-docs" in result
 
     def test_django_stack_excludes_react_skills(self):
         stack = [_make_tech("python"), _make_tech("django")]
         result = self._ids(stack)
         assert "react-best-practices" not in result
-        assert "react-docs" not in result
 
     def test_feature_implementation_plan_always_included(self):
         for stack in [

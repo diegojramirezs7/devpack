@@ -3,7 +3,7 @@ from pathlib import Path
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 
-from devpack.models import IDETarget, IDE_TARGETS, Skill
+from devpack.models import Agent, IDETarget, IDE_TARGETS, Skill
 
 
 def prompt_skill_selection(skills: list[Skill]) -> list[Skill]:
@@ -26,6 +26,28 @@ def prompt_skill_selection(skills: list[Skill]) -> list[Skill]:
     ).execute()
 
     return [skills_by_id[sid] for sid in selected_ids]
+
+
+def prompt_agent_selection(agents: list[Agent]) -> list[Agent]:
+    """Present a checkbox list of agents, all pre-selected. Returns the confirmed subset."""
+    agents_by_id = {agent.id: agent for agent in agents}
+    choices = [
+        Choice(
+            value=agent.id,
+            name=f"{agent.name} — {_truncate(agent.description, 80)}",
+            enabled=True,
+        )
+        for agent in agents
+    ]
+
+    selected_ids: list[str] = inquirer.checkbox(
+        message="Select agents to add (space to toggle, enter to confirm):",
+        choices=choices,
+        cycle=True,
+        transformer=lambda result: f"{len(result)} agent(s) selected",
+    ).execute()
+
+    return [agents_by_id[aid] for aid in selected_ids]
 
 
 def prompt_ide_selection(repo_path: Path) -> IDETarget:

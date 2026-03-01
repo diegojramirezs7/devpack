@@ -15,10 +15,10 @@ from devpack.config import (
     save_to_config_file,
 )
 from devpack.detector import detect_stack, detect_context
-from devpack.matcher import load_skills, load_installed_skills, match_skills
-from devpack.prompter import prompt_ide_selection, prompt_skill_selection
+from devpack.matcher import load_agents, load_skills, load_installed_skills, match_agents, match_skills
+from devpack.prompter import prompt_agent_selection, prompt_ide_selection, prompt_skill_selection
 from devpack.guide_writer import write_guide
-from devpack.writer import write_skills
+from devpack.writer import write_agents, write_skills
 from devpack.ai_config_writer import write_ignore_files, write_agents_md
 
 app = typer.Typer()
@@ -309,20 +309,34 @@ def init(
         # 6. Write skills
         written = write_skills(selected, repo_path, ide)
 
-        # 7. Guide (merge with previously installed)
+        # 7. Agents: load → match → prompt → write
+        all_agents = load_agents(_STARTERPACK_PATH)
+        matched_agents = match_agents(all_agents, context.technologies)
+        selected_agents = []
+        written_agents = []
+        if matched_agents:
+            selected_agents = prompt_agent_selection(matched_agents)
+        if selected_agents:
+            written_agents = write_agents(selected_agents, repo_path)
+
+        # 8. Guide (merge with previously installed skills)
         typer.echo("Generating skill usage guide...")
         prev = load_installed_skills(repo_path, ide)
         selected_ids = {s.id for s in selected}
         all_skills = selected + [s for s in prev if s.id not in selected_ids]
-        guide_path = write_guide(repo_path, all_skills, ide, context.technologies)
+        guide_path = write_guide(repo_path, all_skills, ide, context.technologies, selected_agents)
 
-        # 8. agents.md
-        _, agents_action = write_agents_md(repo_path, context, selected)
+        # 9. agents.md
+        _, agents_action = write_agents_md(repo_path, context, selected, selected_agents)
 
         # Summary
         typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
         for path in written:
             typer.echo(f"  + {path.name}")
+        if written_agents:
+            typer.echo(f"Added {len(written_agents)} agent(s) to .claude/agents/")
+            for path in written_agents:
+                typer.echo(f"  + {path.name}")
         typer.echo(
             f"Wrote local usage guide to {guide_path.relative_to(repo_path)} (gitignored)"
         )

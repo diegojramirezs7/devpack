@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
 from devpack.config import load_api_key
-from devpack.models import DetectedTechnology, IDETarget, Skill
+from devpack.models import Agent, DetectedTechnology, IDETarget, Skill
 
 _GUIDE_DIR = ".devpack"
 _GUIDE_FILENAME = "GUIDE.md"
@@ -32,16 +32,18 @@ def write_guide(
     skills: list[Skill],
     ide: IDETarget,
     stack: list[DetectedTechnology],
+    agents: list[Agent] | None = None,
 ) -> Path:
-    """Write a local (gitignored) guide explaining each installed skill."""
-    explanations = _generate_explanations(skills, ide)
+    """Write a local (gitignored) guide explaining each installed skill and agent."""
+    agents = agents or []
+    explanations = _generate_explanations(skills, agents, ide)
 
     guide_dir = repo_path / _GUIDE_DIR
     guide_dir.mkdir(exist_ok=True)
 
     guide_path = guide_dir / _GUIDE_FILENAME
     guide_path.write_text(
-        _build_guide(skills, ide, stack, explanations), encoding="utf-8"
+        _build_guide(skills, ide, stack, explanations, agents), encoding="utf-8"
     )
 
     _ensure_gitignored(repo_path)
@@ -52,19 +54,21 @@ def write_guide(
 # --- Private helpers ---
 
 
-def _generate_explanations(skills: list[Skill], ide: IDETarget) -> dict[str, str]:
-    """Call Claude to generate human-targeted usage explanations for each skill."""
+def _generate_explanations(
+    skills: list[Skill], agents: list[Agent], ide: IDETarget
+) -> dict[str, str]:
+    """Call Claude to generate human-targeted usage explanations for skills and agents."""
     if not load_api_key():
         return {}
 
     try:
-        return asyncio.run(_generate_explanations_async(skills, ide))
+        return asyncio.run(_generate_explanations_async(skills, agents, ide))
     except Exception:
         return {}
 
 
 async def _generate_explanations_async(
-    skills: list[Skill], ide: IDETarget
+    skills: list[Skill], agents: list[Agent], ide: IDETarget
 ) -> dict[str, str]:
     invoke_template = _IDE_INVOKE.get(ide.id, "your IDE")
 
@@ -76,22 +80,33 @@ async def _generate_explanations_async(
             f"=== {skill.id} ===\n" f"Invocation: {invocation}\n\n" f"{content}"
         )
 
-    prompt = f"""You are writing the "how to use" section of a developer onboarding guide for AI agent skills.
+    for agent in agents:
+        content = agent.path.read_text(encoding="utf-8")
+        skill_blocks.append(
+            f"=== {agent.id} ===\n"
+            f'Invocation: use the Task tool with subagent_type="{agent.id}"\n\n'
+            f"{content}"
+        )
 
-For each skill below, write 2-3 sentences that tell a developer:
-1. The specific situation when they should reach for this skill (be concrete, not abstract)
+    if not skill_blocks:
+        return {}
+
+    prompt = f"""You are writing the "how to use" section of a developer onboarding guide for AI agent skills and subagents.
+
+For each item below, write 2-3 sentences that tell a developer:
+1. The specific situation when they should reach for this skill or agent (be concrete, not abstract)
 2. Exactly how to invoke it — use the invocation command provided
 3. What they will get back
 
 Rules:
 - Write for a human developer, not for an AI model
-- Do not restate or paraphrase the skill's own description back at them
-- Do not start with the skill name
+- Do not restate or paraphrase the item's own description back at them
+- Do not start with the skill or agent name
 - Be direct and practical — tell them what to do, not what the skill "is"
 
-Return a JSON object mapping each skill ID (the text between === markers) to its explanation string.
+Return a JSON object mapping each ID (the text between === markers) to its explanation string.
 
-Skills:
+Skills and agents:
 {chr(10).join(skill_blocks)}
 """
 
@@ -129,7 +144,9 @@ def _build_guide(
     ide: IDETarget,
     stack: list[DetectedTechnology],
     explanations: dict[str, str],
+    agents: list[Agent] | None = None,
 ) -> str:
+    agents = agents or []
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     invoke_template = _IDE_INVOKE.get(ide.id, "See your IDE documentation for `{id}`")
     stack_line = (
@@ -156,7 +173,6 @@ def _build_guide(
 
     for skill in skills:
         invoke = invoke_template.format(id=skill.id)
-        # Use AI-generated explanation, fall back to frontmatter description
         explanation = explanations.get(skill.id) or skill.description
 
         lines += [
@@ -170,6 +186,31 @@ def _build_guide(
             explanation,
             "",
         ]
+
+    if agents:
+        lines += [
+            "---",
+            "",
+            "## Installed Agents",
+            "",
+            f"The following {len(agents)} agent(s) are installed at `.claude/agents/`.",
+            "",
+        ]
+
+        for agent in agents:
+            explanation = explanations.get(agent.id) or agent.description
+
+            lines += [
+                "---",
+                "",
+                f"### {agent.name}",
+                "",
+                f'**How to invoke:** Use the Task tool with `subagent_type="{agent.id}"`  ',
+                f"**Installed at:** `.claude/agents/{agent.id}.md`",
+                "",
+                explanation,
+                "",
+            ]
 
     lines += [
         "---",

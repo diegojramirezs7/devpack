@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from devpack.models import IDETarget, ProjectContext, Skill
+    from devpack.models import Agent, IDETarget, ProjectContext, Skill
 
 # ---------------------------------------------------------------------------
 # Ignore files
@@ -65,7 +65,11 @@ def write_ignore_files(repo_path: Path, ide: "IDETarget") -> list[tuple[str, str
 # ---------------------------------------------------------------------------
 
 
-def _build_agents_md(context: "ProjectContext", selected_skills: list["Skill"]) -> str:
+def _build_agents_md(
+    context: "ProjectContext",
+    selected_skills: list["Skill"],
+    selected_agents: list["Agent"] | None = None,
+) -> str:
     lines: list[str] = ["# agents.md", ""]
 
     # Stack summary
@@ -103,9 +107,18 @@ def _build_agents_md(context: "ProjectContext", selected_skills: list["Skill"]) 
         lines.append("| Skill | Description |")
         lines.append("|---|---|")
         for skill in selected_skills:
-            # Escape pipes inside descriptions
             desc = skill.description.replace("|", "\\|")
             lines.append(f"| `{skill.id}` | {desc} |")
+        lines.append("")
+
+    # Installed agents
+    if selected_agents:
+        lines += ["## Installed Agents", ""]
+        lines.append("| Agent | Description |")
+        lines.append("|---|---|")
+        for agent in selected_agents:
+            desc = agent.description.replace("|", "\\|")
+            lines.append(f"| `{agent.id}` | {desc} |")
         lines.append("")
 
     return "\n".join(lines)
@@ -115,6 +128,7 @@ def write_agents_md(
     repo_path: Path,
     context: "ProjectContext",
     selected_skills: list["Skill"],
+    selected_agents: list["Agent"] | None = None,
 ) -> tuple[Path, str]:
     """Write agents.md to *repo_path*.
 
@@ -126,6 +140,6 @@ def write_agents_md(
     if target.exists():
         return target, "skipped"
 
-    content = _build_agents_md(context, selected_skills)
+    content = _build_agents_md(context, selected_skills, selected_agents)
     target.write_text(content)
     return target, "created"
