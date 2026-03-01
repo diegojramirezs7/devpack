@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 _CONFIG_DIR = Path.home() / ".config" / "devpack"
 _CONFIG_ENV = _CONFIG_DIR / ".env"
@@ -17,7 +17,7 @@ def load_api_key() -> str | None:
     if key := os.getenv("ANTHROPIC_API_KEY"):
         return key
 
-    load_dotenv(override=False)
+    load_dotenv(find_dotenv(usecwd=True), override=False)
     if key := os.getenv("ANTHROPIC_API_KEY"):
         return key
 
@@ -48,9 +48,9 @@ def api_key_source() -> str | None:
             re.search(r"^\s*ANTHROPIC_API_KEY\s*=", path.read_text(), re.MULTILINE)
         )
 
-    local_env = Path.cwd() / ".env"
-    if local_env.exists() and _has_key(local_env):
-        return ".env (current directory)"
+    local_env = find_dotenv(usecwd=True)
+    if local_env and _has_key(Path(local_env)):
+        return f".env ({local_env})"
 
     if _CONFIG_ENV.exists() and _has_key(_CONFIG_ENV):
         return str(_CONFIG_ENV)
