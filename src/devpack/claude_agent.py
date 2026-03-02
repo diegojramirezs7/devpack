@@ -1,6 +1,20 @@
+import os
 from pathlib import Path
 
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+
+# Skip the SDK's `claude -v` subprocess version check. When called from devpack
+# (a library context), the check spawns a short-lived subprocess and then waits
+# for it to exit via asyncio. If any interactive prompt (e.g. InquirerPy) ran
+# before this point, the asyncio event-loop's subprocess-monitoring state may be
+# disrupted, causing that wait to hang indefinitely before any API call is made.
+os.environ.setdefault("CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK", "1")
+
+# When devpack is invoked from inside a Claude Code session (e.g. from the
+# integrated terminal), CLAUDECODE is set in the environment. The claude CLI
+# treats that as a nested-session signal and refuses to start. Unset it so
+# the subprocess spawned by claude_agent_sdk starts cleanly.
+os.environ.pop("CLAUDECODE", None)
 
 from devpack.config import load_api_key
 from devpack.models import StackDetectionResult, ProjectContext
@@ -46,6 +60,9 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
     options = ClaudeAgentOptions(
         allowed_tools=["Read", "Glob", "Grep"],
         cwd=str(repo_path),
+        max_buffer_size=10
+        * 1024
+        * 1024,  # 10MB — default 1MB is too small for large repos
         output_format={
             "type": "json_schema",
             "schema": _build_json_schema(),
@@ -124,6 +141,9 @@ async def detect_project_context(repo_path: Path) -> ProjectContext:
     options = ClaudeAgentOptions(
         allowed_tools=["Read", "Glob", "Grep"],
         cwd=str(repo_path),
+        max_buffer_size=10
+        * 1024
+        * 1024,  # 10MB — default 1MB is too small for large repos
         output_format={
             "type": "json_schema",
             "schema": _build_context_schema(),

@@ -15,8 +15,18 @@ from devpack.config import (
     save_to_config_file,
 )
 from devpack.detector import detect_stack, detect_context
-from devpack.matcher import load_agents, load_skills, load_installed_skills, match_agents, match_skills
-from devpack.prompter import prompt_agent_selection, prompt_ide_selection, prompt_skill_selection
+from devpack.matcher import (
+    load_agents,
+    load_skills,
+    load_installed_skills,
+    match_agents,
+    match_skills,
+)
+from devpack.prompter import (
+    prompt_agent_selection,
+    prompt_ide_selection,
+    prompt_skill_selection,
+)
 from devpack.guide_writer import write_guide
 from devpack.writer import write_agents, write_skills
 from devpack.ai_config_writer import write_ignore_files, write_agents_md
@@ -272,15 +282,15 @@ def init(
         typer.echo("Warning: the target directory appears to be empty.\n")
 
     try:
-        # 1. IDE selection — upfront, before any API call
+        # 1. Single SDK call — gather all context
+        typer.echo("Analyzing your project with Claude...")
+        context = detect_context(repo_path)
+
+        # 2. IDE selection
         ide = prompt_ide_selection(repo_path)
 
-        # 2. Write ignore file immediately (fast, no API call needed)
+        # 3. Write ignore file immediately (fast, no API call needed)
         ignore_results = write_ignore_files(repo_path, ide)
-
-        # 3. Single SDK call — gather all context
-        typer.echo("\nAnalyzing your project with Claude...")
-        context = detect_context(repo_path)
 
         if context.technologies:
             tech_names = ", ".join(t.name for t in context.technologies)
@@ -324,10 +334,14 @@ def init(
         prev = load_installed_skills(repo_path, ide)
         selected_ids = {s.id for s in selected}
         all_skills = selected + [s for s in prev if s.id not in selected_ids]
-        guide_path = write_guide(repo_path, all_skills, ide, context.technologies, selected_agents)
+        guide_path = write_guide(
+            repo_path, all_skills, ide, context.technologies, selected_agents
+        )
 
         # 9. agents.md
-        _, agents_action = write_agents_md(repo_path, context, selected, selected_agents)
+        _, agents_action = write_agents_md(
+            repo_path, context, selected, selected_agents
+        )
 
         # Summary
         typer.echo(f"\nAdded {len(written)} skill(s) to {ide.skill_path}/")
