@@ -22,25 +22,27 @@ from devpack.registry.known_ids import KNOWN_TECHNOLOGY_IDS
 
 
 def _build_detection_prompt() -> str:
-    known_ids_formatted = ", ".join(KNOWN_TECHNOLOGY_IDS)
-    return f"""
-    Analyze the repository and identify the technologies, frameworks, and tools used.
+    known_ids = ", ".join(KNOWN_TECHNOLOGY_IDS)
+    return f"""Identify the technology stack of this repository. Only Python and JavaScript/TypeScript stacks are supported.
 
-    Use the Read, Glob, and Grep tools to inspect:
-    - Package manifests: package.json, requirements.txt, pyproject.toml, Gemfile, go.mod, Cargo.toml, composer.json
-    - Config files: tsconfig.json, docker-compose.yml, .env*, *.config.js
-    - Key source files to confirm actual usage, not just listed dependencies
+## Tool budget
+Use at most 6 Read or Glob calls. Work through the file list below in order and stop as soon as you can populate all fields.
 
-    Only report technologies clearly present in the project.
+## Files to check (in priority order)
+Read each file if it exists:
+1. package.json
+2. pyproject.toml
+3. requirements.txt
+4. tsconfig.json
+5. docker-compose.yml
+6. Makefile
 
-    You MUST use ONLY the following technology IDs — do not invent new ones:
-    {known_ids_formatted}
-
-    For is_frontend, set true for: javascript, typescript, react, vue, nextjs, vite, angular.
-
-    In the summary field, write 1-2 sentences describing the project's stack \
-    (e.g. "A Django REST API backed by PostgreSQL, containerized with Docker.").
-    """
+## Output rules
+- Report only technologies with clear evidence in the files above.
+- Use ONLY these technology IDs — no others are valid: {known_ids}
+- Set is_frontend: true for: javascript, typescript, react, vue, nextjs, vite, angular
+- Set is_frontend: false for all others.
+- summary: 1-2 sentences describing the stack (e.g. "A Django REST API backed by PostgreSQL and Redis.")."""
 
 
 def _build_json_schema() -> dict:
@@ -58,7 +60,7 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
         )
 
     options = ClaudeAgentOptions(
-        allowed_tools=["Read", "Glob", "Grep"],
+        allowed_tools=["Read", "Glob"],
         cwd=str(repo_path),
         max_buffer_size=10
         * 1024
@@ -94,35 +96,48 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
 
 
 def _build_context_prompt() -> str:
-    known_ids_formatted = ", ".join(KNOWN_TECHNOLOGY_IDS)
-    return f"""
-    Analyze the repository and produce a structured project context.
+    known_ids = ", ".join(KNOWN_TECHNOLOGY_IDS)
+    return f"""Produce a structured project context for this repository. Only Python and JavaScript/TypeScript stacks are supported.
 
-    Use Read, Glob, and Grep to inspect:
-    - Package manifests: package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod
-    - Config files: tsconfig.json, docker-compose.yml, Makefile, .python-version, .nvmrc
-    - Top-level directory layout
+## Tool budget
+Use at most 8 Read or Glob calls. Work through the steps below in order.
 
-    Return all fields:
+## Step 1 — List top-level directory (1 Glob call)
+Call Glob("*") once. Use the result for the directory_structure field.
 
-    technologies: Only IDs from this list — {known_ids_formatted}
-    Set is_frontend: true for javascript, typescript, react, vue, nextjs, vite, angular.
+## Step 2 — Read manifest files (in priority order, skip if absent)
+1. package.json
+2. pyproject.toml
+3. requirements.txt
+4. tsconfig.json
+5. docker-compose.yml
+6. Makefile (first 30 lines — for setup commands)
 
-    summary: 1-2 sentences describing the project stack.
+## Output field instructions
 
-    directory_structure: Annotated top-level tree. Example:
-      src/          # application source
-      tests/        # test suite
-      Dockerfile    # container config
-    Keep it concise, annotate only what matters.
+**technologies**
+Use ONLY these IDs: {known_ids}
+Set is_frontend: true for: javascript, typescript, react, vue, nextjs, vite, angular
 
-    setup_commands: Infer from package.json scripts, Makefile, README, or common conventions.
-    Set fields to null if not determinable.
+**summary**
+1-2 sentences describing the stack.
+Example: "A Next.js frontend with a FastAPI backend, using PostgreSQL and Docker."
 
-    runtime_versions: Dict of runtime → version (e.g. {{"python": "3.11", "node": "20"}}).
-    Infer from .python-version, .nvmrc, pyproject.toml requires-python, package.json engines.
-    Use empty dict {{}} if not determinable.
-    """
+**directory_structure**
+Annotated tree of top-level entries from your Glob("*") result.
+Include only entries that reveal project structure. Annotate each with a brief comment.
+Example:
+  src/        # application source
+  tests/      # test suite
+  Dockerfile  # container config
+
+**setup_commands**
+Infer from the package.json "scripts" section or Makefile targets only.
+Set each field to null if not determinable.
+- install: how to install dependencies
+- dev: how to start a development server or watcher
+- test: how to run tests
+- build: how to produce a production build"""
 
 
 def _build_context_schema() -> dict:
@@ -139,7 +154,7 @@ async def detect_project_context(repo_path: Path) -> ProjectContext:
         )
 
     options = ClaudeAgentOptions(
-        allowed_tools=["Read", "Glob", "Grep"],
+        allowed_tools=["Read", "Glob"],
         cwd=str(repo_path),
         max_buffer_size=10
         * 1024

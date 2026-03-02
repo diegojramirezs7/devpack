@@ -3,22 +3,19 @@ KNOWN_TECHNOLOGY_IDS: list[str] = [
     "python",
     "javascript",
     "typescript",
-    "ruby",
-    "go",
-    "rust",
-    # Python frameworks
+    # Python frameworks & tools
     "django",
     "fastapi",
     "flask",
-    # JS frameworks
+    "celery",
+    # JS frameworks & tools
     "react",
     "vue",
     "nextjs",
     "vite",
     "angular",
     "sequelize",
-    # Ruby
-    "rails",
+    "graphql",
     # Databases
     "postgres",
     "mysql",
@@ -28,7 +25,4 @@ KNOWN_TECHNOLOGY_IDS: list[str] = [
     # Infrastructure
     "docker",
     "kubernetes",
-    # Other common
-    "celery",
-    "graphql",
 ]

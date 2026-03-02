@@ -68,7 +68,6 @@ def _make_context(*tech_ids: str) -> ProjectContext:
         directory_structure="src/  # source\ntests/  # tests",
         setup_commands=SetupCommands(install="npm install", dev="npm run dev",
                                      test="npm test", build=None),
-        runtime_versions={"node": "20"},
     )
 
 
@@ -98,7 +97,6 @@ def test_detect_context_setup_commands_preserved(mock_detect, tmp_path):
     mock_detect.return_value = _make_context("react")
     result = detect_context(tmp_path)
     assert result.setup_commands.dev == "npm run dev"
-    assert result.runtime_versions == {"node": "20"}
 
 
 # --- Integration tests (require ANTHROPIC_API_KEY; skipped in CI) ---

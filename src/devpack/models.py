@@ -35,7 +35,6 @@ class ProjectContext(BaseModel):
     summary:             str
     directory_structure: str
     setup_commands:      SetupCommands
-    runtime_versions:    dict[str, str]
 
 
 @dataclass

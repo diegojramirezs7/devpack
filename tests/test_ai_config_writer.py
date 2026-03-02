@@ -27,7 +27,6 @@ def _make_context(**kwargs) -> ProjectContext:
             test="pytest",
             build=None,
         ),
-        runtime_versions={"python": "3.11"},
     )
     defaults.update(kwargs)
     return ProjectContext(**defaults)
