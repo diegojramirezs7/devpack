@@ -1,4 +1,8 @@
+import atexit
+import json
 import os
+import sys
+import tempfile
 from pathlib import Path
 
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
@@ -21,6 +25,37 @@ from devpack.models import StackDetectionResult, ProjectContext
 from devpack.registry.known_ids import KNOWN_TECHNOLOGY_IDS
 
 
+_EMPTY_MCP_CONFIG_PATH: str | None = None
+
+
+def _get_empty_mcp_config() -> str:
+    """Return path to a temp file containing an empty MCP server config.
+
+    The claude CLI expects --mcp-config to be a file path, not inline JSON.
+    Created once per process; cleaned up on exit.
+    """
+    global _EMPTY_MCP_CONFIG_PATH
+    if _EMPTY_MCP_CONFIG_PATH is None:
+        fd, path = tempfile.mkstemp(suffix=".json", prefix="devpack-mcp-")
+        with os.fdopen(fd, "w") as f:
+            json.dump({"mcpServers": {}}, f)
+        atexit.register(lambda p=path: os.path.exists(p) and os.unlink(p))
+        _EMPTY_MCP_CONFIG_PATH = path
+    return _EMPTY_MCP_CONFIG_PATH
+
+
+def _make_stderr_logger():
+    """Return a stderr callback that prints agent subprocess output.
+
+    Enabled only when ANTHROPIC_LOG is set (i.e. --debug mode).
+    Lets you see exactly which files the agent reads, helping diagnose
+    buffer overflows caused by unexpectedly large file reads.
+    """
+    def _log(line: str) -> None:
+        print(f"[agent] {line}", file=sys.stderr, flush=True)
+    return _log
+
+
 def _build_detection_prompt() -> str:
     known_ids = ", ".join(KNOWN_TECHNOLOGY_IDS)
     return f"""Identify the technology stack of this repository. Only Python and JavaScript/TypeScript stacks are supported.
@@ -29,7 +64,7 @@ def _build_detection_prompt() -> str:
 Use at most 6 Read or Glob calls. Work through the file list below in order and stop as soon as you can populate all fields.
 
 ## Files to check (in priority order)
-Read each file if it exists:
+Read ONLY these files, nothing else. Do not read lock files, source files, or any file not in this list.
 1. package.json
 2. pyproject.toml
 3. requirements.txt
@@ -62,9 +97,12 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
     options = ClaudeAgentOptions(
         allowed_tools=["Read", "Glob"],
         cwd=str(repo_path),
-        max_buffer_size=10
-        * 1024
-        * 1024,  # 10MB — default 1MB is too small for large repos
+        max_turns=3,
+        max_buffer_size=20 * 1024 * 1024,
+        extra_args={"mcp-config": _get_empty_mcp_config()},
+        # When --debug is active, print every line the subprocess writes to
+        # stderr so you can see exactly which files the agent is reading.
+        stderr=_make_stderr_logger() if os.environ.get("ANTHROPIC_LOG") else None,
         output_format={
             "type": "json_schema",
             "schema": _build_json_schema(),
@@ -106,6 +144,7 @@ Use at most 8 Read or Glob calls. Work through the steps below in order.
 Call Glob("*") once. Use the result for the directory_structure field.
 
 ## Step 2 — Read manifest files (in priority order, skip if absent)
+Read ONLY these files, nothing else. Do not read lock files, source files, or any file not in this list.
 1. package.json
 2. pyproject.toml
 3. requirements.txt
@@ -156,9 +195,10 @@ async def detect_project_context(repo_path: Path) -> ProjectContext:
     options = ClaudeAgentOptions(
         allowed_tools=["Read", "Glob"],
         cwd=str(repo_path),
-        max_buffer_size=10
-        * 1024
-        * 1024,  # 10MB — default 1MB is too small for large repos
+        max_turns=4,
+        max_buffer_size=25 * 1024 * 1024,
+        extra_args={"mcp-config": _get_empty_mcp_config()},
+        stderr=_make_stderr_logger() if os.environ.get("ANTHROPIC_LOG") else None,
         output_format={
             "type": "json_schema",
             "schema": _build_context_schema(),

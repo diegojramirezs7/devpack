@@ -1,0 +1,96 @@
+diegoramirez@Diegos-MacBook-Pro-3 backend % devpack init . --debug                        
+Analyzing your project with Claude...
+Fatal error in message reader: Command failed with exit code 1 (exit code: 1)
+Error output: Check stderr output for details
+╭──────────────────────────────────────────────────── Traceback (most recent call last) ────────────────────────────────────────────────────╮
+│ /Users/diegoramirez/Documents/devpack/src/devpack/cli.py:287 in init                                                                      │
+│                                                                                                                                           │
+│   284 │   try:                                                                                                                            │
+│   285 │   │   # 1. Single SDK call — gather all context                                                                                   │
+│   286 │   │   typer.echo("Analyzing your project with Claude...")                                                                         │
+│ ❱ 287 │   │   context = detect_context(repo_path)                                                                                         │
+│   288 │   │                                                                                                                               │
+│   289 │   │   # 2. IDE selection                                                                                                          │
+│   290 │   │   ide = prompt_ide_selection(repo_path)                                                                                       │
+│                                                                                                                                           │
+│ /Users/diegoramirez/Documents/devpack/src/devpack/detector.py:16 in detect_context                                                        │
+│                                                                                                                                           │
+│   13                                                                                                                                      │
+│   14 def detect_context(repo_path: Path) -> ProjectContext:                                                                               │
+│   15 │   """Detect full project context by querying Claude against the repo."""                                                           │
+│ ❱ 16 │   return asyncio.run(detect_project_context(repo_path))                                                                            │
+│   17                                                                                                                                      │
+│                                                                                                                                           │
+│ /Users/diegoramirez/.local/share/uv/python/cpython-3.14.2-macos-aarch64-none/lib/python3.14/asyncio/runners.py:204 in run                 │
+│                                                                                                                                           │
+│   201 │   │   │   "asyncio.run() cannot be called from a running event loop")                                                             │
+│   202 │                                                                                                                                   │
+│   203 │   with Runner(debug=debug, loop_factory=loop_factory) as runner:                                                                  │
+│ ❱ 204 │   │   return runner.run(main)                                                                                                     │
+│   205                                                                                                                                     │
+│   206                                                                                                                                     │
+│   207 def _cancel_all_tasks(loop):                                                                                                        │
+│                                                                                                                                           │
+│ /Users/diegoramirez/.local/share/uv/python/cpython-3.14.2-macos-aarch64-none/lib/python3.14/asyncio/runners.py:127 in run                 │
+│                                                                                                                                           │
+│   124 │   │                                                                                                                               │
+│   125 │   │   self._interrupt_count = 0                                                                                                   │
+│   126 │   │   try:                                                                                                                        │
+│ ❱ 127 │   │   │   return self._loop.run_until_complete(task)                                                                              │
+│   128 │   │   except exceptions.CancelledError:                                                                                           │
+│   129 │   │   │   if self._interrupt_count > 0:                                                                                           │
+│   130 │   │   │   │   uncancel = getattr(task, "uncancel", None)                                                                          │
+│                                                                                                                                           │
+│ /Users/diegoramirez/.local/share/uv/python/cpython-3.14.2-macos-aarch64-none/lib/python3.14/asyncio/base_events.py:719 in                 │
+│ run_until_complete                                                                                                                        │
+│                                                                                                                                           │
+│    716 │   │   if not future.done():                                                                                                      │
+│    717 │   │   │   raise RuntimeError('Event loop stopped before Future completed.')                                                      │
+│    718 │   │                                                                                                                              │
+│ ❱  719 │   │   return future.result()                                                                                                     │
+│    720 │                                                                                                                                  │
+│    721 │   def stop(self):                                                                                                                │
+│    722 │   │   """Stop running the event loop.                                                                                            │
+│                                                                                                                                           │
+│ /Users/diegoramirez/Documents/devpack/src/devpack/claude_agent.py:189 in detect_project_context                                           │
+│                                                                                                                                           │
+│   186 │   structured_output = None                                                                                                        │
+│   187 │   result_subtype = None                                                                                                           │
+│   188 │                                                                                                                                   │
+│ ❱ 189 │   async for message in query(prompt=_build_context_prompt(), options=options):                                                    │
+│   190 │   │   if isinstance(message, ResultMessage):                                                                                      │
+│   191 │   │   │   structured_output = message.structured_output                                                                           │
+│   192 │   │   │   result_subtype = message.subtype                                                                                        │
+│                                                                                                                                           │
+│ /Users/diegoramirez/.local/share/uv/tools/devpack-kit/lib/python3.14/site-packages/claude_agent_sdk/query.py:123 in query                 │
+│                                                                                                                                           │
+│   120 │                                                                                                                                   │
+│   121 │   client = InternalClient()                                                                                                       │
+│   122 │                                                                                                                                   │
+│ ❱ 123 │   async for message in client.process_query(                                                                                      │
+│   124 │   │   prompt=prompt, options=options, transport=transport                                                                         │
+│   125 │   ):                                                                                                                              │
+│   126 │   │   yield message                                                                                                               │
+│                                                                                                                                           │
+│ /Users/diegoramirez/.local/share/uv/tools/devpack-kit/lib/python3.14/site-packages/claude_agent_sdk/_internal/client.py:140 in            │
+│ process_query                                                                                                                             │
+│                                                                                                                                           │
+│   137 │   │   │   │   query._tg.start_soon(query.stream_input, prompt)                                                                    │
+│   138 │   │   │                                                                                                                           │
+│   139 │   │   │   # Yield parsed messages, skipping unknown message types                                                                 │
+│ ❱ 140 │   │   │   async for data in query.receive_messages():                                                                             │
+│   141 │   │   │   │   message = parse_message(data)                                                                                       │
+│   142 │   │   │   │   if message is not None:                                                                                             │
+│   143 │   │   │   │   │   yield message                                                                                                   │
+│                                                                                                                                           │
+│ /Users/diegoramirez/.local/share/uv/tools/devpack-kit/lib/python3.14/site-packages/claude_agent_sdk/_internal/query.py:611 in             │
+│ receive_messages                                                                                                                          │
+│                                                                                                                                           │
+│   608 │   │   │   if message.get("type") == "end":                                                                                        │
+│   609 │   │   │   │   break                                                                                                               │
+│   610 │   │   │   elif message.get("type") == "error":                                                                                    │
+│ ❱ 611 │   │   │   │   raise Exception(message.get("error", "Unknown error"))                                                              │
+│   612 │   │   │                                                                                                                           │
+│   613 │   │   │   yield message                                                                                                           │
+│   614                                                                                                                                     │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
