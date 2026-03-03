@@ -1,6 +1,7 @@
 import atexit
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -25,7 +26,24 @@ from devpack.models import StackDetectionResult, ProjectContext
 from devpack.registry.known_ids import KNOWN_TECHNOLOGY_IDS
 
 
+_SYSTEM_CLAUDE_PATH: str | None = None
 _EMPTY_MCP_CONFIG_PATH: str | None = None
+
+
+def _get_system_claude() -> str | None:
+    """Return the path to the system-installed claude binary, bypassing any
+    bundled binary that SDK 0.1.44+ ships alongside the package.
+
+    SDK 0.1.44 introduced _find_bundled_cli() which prefers a bundled claude
+    binary over the system one. The bundled version (2.1.59) has different
+    MCP-server lifecycle behaviour than the user's installed version, causing
+    the subprocess to hang indefinitely on devpack init. Explicitly passing
+    cli_path forces the SDK to skip its bundled-binary lookup.
+    """
+    global _SYSTEM_CLAUDE_PATH
+    if _SYSTEM_CLAUDE_PATH is None:
+        _SYSTEM_CLAUDE_PATH = shutil.which("claude") or ""
+    return _SYSTEM_CLAUDE_PATH or None
 
 
 def _get_empty_mcp_config() -> str:
@@ -51,8 +69,10 @@ def _make_stderr_logger():
     Lets you see exactly which files the agent reads, helping diagnose
     buffer overflows caused by unexpectedly large file reads.
     """
+
     def _log(line: str) -> None:
         print(f"[agent] {line}", file=sys.stderr, flush=True)
+
     return _log
 
 
@@ -99,6 +119,7 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
         cwd=str(repo_path),
         max_turns=3,
         max_buffer_size=20 * 1024 * 1024,
+        cli_path=_get_system_claude(),
         extra_args={"mcp-config": _get_empty_mcp_config()},
         # When --debug is active, print every line the subprocess writes to
         # stderr so you can see exactly which files the agent is reading.
@@ -112,11 +133,17 @@ async def detect_tech_stack(repo_path: Path) -> StackDetectionResult:
     structured_output = None
     result_subtype = None
 
-    # We only care about the final ResultMessage; intermediate messages are streaming progress.
-    async for message in query(prompt=_build_detection_prompt(), options=options):
-        if isinstance(message, ResultMessage):
-            structured_output = message.structured_output
-            result_subtype = message.subtype
+    # SDK 0.1.44+ raises an exception after a successful result when account-level MCP
+    # servers (e.g. Google Calendar) fail to disconnect cleanly (exit code 1). Re-raise
+    # only if we received nothing at all — if structured_output is set, the query succeeded.
+    try:
+        async for message in query(prompt=_build_detection_prompt(), options=options):
+            if isinstance(message, ResultMessage):
+                structured_output = message.structured_output
+                result_subtype = message.subtype
+    except Exception:
+        if structured_output is None:
+            raise
 
     if result_subtype == "error_max_structured_output_retries":
         raise ValueError(
@@ -138,7 +165,7 @@ def _build_context_prompt() -> str:
     return f"""Produce a structured project context for this repository. Only Python and JavaScript/TypeScript stacks are supported.
 
 ## Tool budget
-Use at most 8 Read or Glob calls. Work through the steps below in order.
+Use at most 7 Read or Glob calls. Work through the steps below in order.
 
 ## Step 1 — List top-level directory (1 Glob call)
 Call Glob("*") once. Use the result for the directory_structure field.
@@ -195,8 +222,9 @@ async def detect_project_context(repo_path: Path) -> ProjectContext:
     options = ClaudeAgentOptions(
         allowed_tools=["Read", "Glob"],
         cwd=str(repo_path),
-        max_turns=4,
+        max_turns=10,
         max_buffer_size=25 * 1024 * 1024,
+        cli_path=_get_system_claude(),
         extra_args={"mcp-config": _get_empty_mcp_config()},
         stderr=_make_stderr_logger() if os.environ.get("ANTHROPIC_LOG") else None,
         output_format={
@@ -208,10 +236,14 @@ async def detect_project_context(repo_path: Path) -> ProjectContext:
     structured_output = None
     result_subtype = None
 
-    async for message in query(prompt=_build_context_prompt(), options=options):
-        if isinstance(message, ResultMessage):
-            structured_output = message.structured_output
-            result_subtype = message.subtype
+    try:
+        async for message in query(prompt=_build_context_prompt(), options=options):
+            if isinstance(message, ResultMessage):
+                structured_output = message.structured_output
+                result_subtype = message.subtype
+    except Exception:
+        if structured_output is None:
+            raise
 
     if result_subtype == "error_max_structured_output_retries":
         raise ValueError(

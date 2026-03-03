@@ -260,6 +260,31 @@ def add_skills(
         raise typer.Exit(1)
 
 
+@app.command("probe")
+def probe() -> None:
+    """Minimal Claude SDK diagnostic — tests if the SDK works at all."""
+    from devpack.probe_agent import run_step0, run_step1, run_step2, run_step3
+
+    if not run_step0():
+        raise typer.Exit(1)
+
+    print()
+    step1_passed = run_step1()
+
+    print()
+    step2_passed = run_step2()
+
+    print()
+    if not run_step3():
+        raise typer.Exit(1)
+
+    print()
+    if step1_passed and step2_passed:
+        print("All probe steps passed.")
+    else:
+        print("Step 3: PASS — ignoring post-result cleanup errors is the fix.")
+
+
 @app.command("init")
 def init(
     repo_path: Annotated[
